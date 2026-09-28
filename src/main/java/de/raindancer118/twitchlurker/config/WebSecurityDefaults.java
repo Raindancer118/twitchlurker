@@ -15,7 +15,7 @@ final class WebSecurityDefaults {
     static void apply(HttpSecurity http, String... publicPages) throws Exception {
         http.authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health/**", "/actuator/health", "/bye.html",
-                                "/fonts/**", "/icon.svg", "/favicon.ico", "/error",
+                                "/fonts/**", "/icon.svg", "/favicon.ico", "/error", "/error/**",
                                 "/styles.css", "/motion.css").permitAll()
                         .requestMatchers(publicPages).permitAll()
                         .anyRequest().authenticated())

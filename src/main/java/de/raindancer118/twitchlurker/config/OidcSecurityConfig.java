@@ -35,10 +35,12 @@ public class OidcSecurityConfig {
     private static final Logger log = LoggerFactory.getLogger(OidcSecurityConfig.class);
 
     @Bean
-    SecurityFilterChain security(HttpSecurity http, OAuth2UserService<OidcUserRequest, OidcUser> allowlistedOidcUsers) throws Exception {
+    SecurityFilterChain security(HttpSecurity http, OAuth2UserService<OidcUserRequest, OidcUser> allowlistedOidcUsers,
+                                 ClientRegistrationRepository registrations) throws Exception {
         WebSecurityDefaults.apply(http, "/denied.html");
         http.oauth2Login(o -> o
                         .loginPage(LOGIN_URL)
+                        .authorizationEndpoint(a -> a.authorizationRequestResolver(tolerant(registrations)))
                         .userInfoEndpoint(u -> u.oidcUserService(allowlistedOidcUsers))
                         .failureUrl("/denied.html"))
                 .exceptionHandling(e -> e
@@ -47,6 +49,35 @@ public class OidcSecurityConfig {
                         .defaultAuthenticationEntryPointFor(new LoginUrlAuthenticationEntryPoint(LOGIN_URL),
                                 PathPatternRequestMatcher.pathPattern("/**")));
         return http.build();
+    }
+
+    /**
+     * Unknown registration ids (old tabs/bookmarks pointing at /oauth2/authorization/authentik) fall through to the
+     * normal login redirect instead of ending in a 500.
+     */
+    static org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver tolerant(ClientRegistrationRepository registrations) {
+        var delegate = new org.springframework.security.oauth2.client.web.DefaultOAuth2AuthorizationRequestResolver(
+                registrations, "/oauth2/authorization");
+        return new org.springframework.security.oauth2.client.web.OAuth2AuthorizationRequestResolver() {
+            @Override
+            public org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest resolve(jakarta.servlet.http.HttpServletRequest request) {
+                try {
+                    return delegate.resolve(request);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+            }
+
+            @Override
+            public org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest resolve(jakarta.servlet.http.HttpServletRequest request,
+                                                                                                    String registrationId) {
+                try {
+                    return delegate.resolve(request, registrationId);
+                } catch (IllegalArgumentException e) {
+                    return null;
+                }
+            }
+        };
     }
 
     @Bean

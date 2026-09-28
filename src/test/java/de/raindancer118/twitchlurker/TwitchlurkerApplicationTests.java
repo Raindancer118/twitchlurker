@@ -124,6 +124,21 @@ class TwitchlurkerApplicationTests {
     }
 
     @Test
+    void oldLoginLinksRedirectInsteadOfFailing() throws Exception {
+        // Tabs and bookmarks from before 0.7.0 still point at the old registration id.
+        mvc.perform(get("/oauth2/authorization/authentik")).andExpect(status().is3xxRedirection())
+                .andExpect(redirectedUrl("/oauth2/authorization/oidc"));
+    }
+
+    @Test
+    void errorsRenderTheFriendlyPage() throws Exception {
+        mvc.perform(get("/error/404.html")).andExpect(status().isOk())
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.content()
+                        .string(org.hamcrest.Matchers.containsString("standalone-main")));
+        mvc.perform(get("/error/5xx.html")).andExpect(status().isOk());
+    }
+
+    @Test
     void overviewForLoggedInUserWithSecurityHeaders() throws Exception {
         events.record("POINTS", "papaplatte", 50L, "CLAIM");
         mvc.perform(get("/api/overview").with(oidcLogin()))
