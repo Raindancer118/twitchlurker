@@ -30,7 +30,7 @@ def game_slug(game: dict) -> str:
     if game.get("slug"):
         return game["slug"]
     name = game.get("displayName") or game.get("name") or ""
-    slug = re.sub(r"'", "", name.lower())
+    slug = re.sub(r"'", "", name.lower().replace("&", " and "))
     slug = re.sub(r"\W+", "-", slug)
     return re.sub(r"-{2,}", "-", slug.strip("-"))
 
@@ -119,11 +119,17 @@ def game_watched(game: dict, watch_games) -> bool:
     return name in wanted or game_slug(game) in wanted
 
 
-def pick_directory_channels(response: dict, exclude: set, limit: int, allowed=None) -> list:
+def slug_from_lookup(response) -> str | None:
+    game = ((response or {}).get("data") or {}).get("game") or {}
+    return game.get("slug") or None
+
+
+def pick_directory_channels(response: dict, exclude: set, limit: int, allowed=None, prefer=None) -> list:
     game = ((response or {}).get("data") or {}).get("game") or {}
     edges = ((game.get("streams") or {}).get("edges")) or []
     nodes = [e["node"] for e in edges if e.get("node") and e["node"].get("broadcaster")]
-    nodes.sort(key=lambda n: n.get("viewersCount") or 0, reverse=True)
+    prefer = {p.lower() for p in prefer or ()}
+    nodes.sort(key=lambda n: (n["broadcaster"]["login"].lower() not in prefer, -(n.get("viewersCount") or 0)))
     picked = []
     for n in nodes:
         login = n["broadcaster"]["login"].lower()

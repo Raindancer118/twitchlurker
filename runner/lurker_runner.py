@@ -216,6 +216,26 @@ def fetch_community_drops(url):
     return data if isinstance(data, list) else None
 
 
+slug_cache = {}
+
+
+def resolve_slug(twitch, game):
+    """Twitch's own slug for a game name; guessing it breaks on names like 'Dungeons & Dragons'."""
+    if game.get("slug"):
+        return game["slug"]
+    name = game["displayName"]
+    if name.lower() not in slug_cache:
+        try:
+            response = twitch.post_gql_request({"operationName": "GameSlug", "query": "query GameSlug($name:String!){game(name:$name){slug}}", "variables": {"name": name}})
+            slug = core.slug_from_lookup(response)
+        except Exception:
+            slug = None
+        if not slug:
+            return core.game_slug(game)
+        slug_cache[name.lower()] = slug
+    return slug_cache[name.lower()]
+
+
 def drops_loop(miner, config):
     """Every 10 min (or when the watchlist changes): publish the campaign catalogue, then scout drop streams."""
     scout = config.get("dropScout") or {}
@@ -258,20 +278,22 @@ def drops_loop(miner, config):
                         continue
                     # Only restrict to listed channels if every known campaign for the game is channel-restricted.
                     game_campaigns = [c for c in catalogue if (c["game"] or "").lower() == name]
-                    allowed = set()
-                    if game_campaigns and all(c["channels"] for c in game_campaigns):
-                        for c in game_campaigns:
-                            allowed.update(c["channels"])
+                    listed = {ch for c in game_campaigns for ch in c["channels"]}
+                    allowed = listed if game_campaigns and all(c["channels"] for c in game_campaigns) else None
                     q = copy.deepcopy(query)
-                    q["variables"]["slug"] = core.game_slug(target)
+                    q["variables"]["slug"] = resolve_slug(twitch, target)
                     response = twitch.post_gql_request(q)
-                    picked = core.pick_directory_channels(response, known, missing, allowed=allowed or None)
+                    if not ((response or {}).get("data") or {}).get("game"):
+                        emit({"t": "log", "level": "WARNING", "logger": "runner",
+                              "msg": f"Drops for {target['displayName']}: Twitch has no category '{q['variables']['slug']}'"})
+                        continue
+                    picked = core.pick_directory_channels(response, known, missing, allowed=allowed, prefer=listed)
                     for login in picked:
                         if add_streamer(miner, login, "drops"):
                             known.add(login)
-                    if picked:
-                        emit({"t": "log", "level": "INFO", "logger": "runner",
-                              "msg": f"Drops for {target['displayName']}: lurking {', '.join(picked)}"})
+                    emit({"t": "log", "level": "INFO", "logger": "runner",
+                          "msg": f"Drops for {target['displayName']}: "
+                                 + (f"lurking {', '.join(picked)}" if picked else "no live drop streams right now")})
                     time.sleep(random.uniform(1, 3))
         except Exception as e:
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop hunt failed: {e}"})

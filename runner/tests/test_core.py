@@ -280,3 +280,25 @@ def test_scout_targets_watched_games_by_name_and_linked_inventory_games():
     assert [(t["displayName"], t["watched"]) for t in targets] == [("Minecraft", True), ("Rust", False)]
     assert core.game_slug(targets[0]) == "minecraft"
     assert [t["displayName"] for t in core.scout_targets([], inv, require_linked=False)] == ["Rust", "Unlinked"]
+
+
+def test_game_slug_handles_ampersand_like_twitch():
+    # Twitch's slug for "Dungeons & Dragons" is dungeons-and-dragons; guessing "dungeons-dragons" found no streams.
+    assert core.game_slug({"displayName": "Dungeons & Dragons"}) == "dungeons-and-dragons"
+
+
+def test_slug_from_game_lookup():
+    resp = {"data": {"game": {"id": "509577", "slug": "dungeons-and-dragons", "displayName": "Dungeons & Dragons"}}}
+    assert core.slug_from_lookup(resp) == "dungeons-and-dragons"
+    assert core.slug_from_lookup({"data": {"game": None}}) is None
+    assert core.slug_from_lookup({"errors": [{"message": "x"}]}) is None
+    assert core.slug_from_lookup(None) is None
+
+
+def test_pick_directory_channels_prefers_campaign_channels():
+    resp = {"data": {"game": {"streams": {"edges": [
+        {"node": {"viewersCount": 900, "broadcaster": {"login": "big"}}},
+        {"node": {"viewersCount": 10, "broadcaster": {"login": "wizards_dnd"}}},
+        {"node": {"viewersCount": 500, "broadcaster": {"login": "mid"}}},
+    ]}}}}
+    assert core.pick_directory_channels(resp, exclude=set(), limit=2, prefer={"wizards_dnd"}) == ["wizards_dnd", "big"]
