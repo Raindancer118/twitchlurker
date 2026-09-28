@@ -63,9 +63,23 @@ function animateNumber(el, value, { bump = false, prefix = '' } = {}) {
 }
 
 function moveNavIndicator() {
-  const active = $('nav a[aria-current]');
-  if (active && $('nav').scrollWidth > $('nav').clientWidth) {
-    active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reducedMotion.matches ? 'auto' : 'smooth' });
+  const bar = $('.tabbar');
+  const active = $('.tabbar a[aria-current]');
+  if (!bar || !active || !bar.offsetWidth) return;
+  let pill = $('.tab-indicator', bar);
+  const first = !pill;
+  if (first) {
+    pill = document.createElement('span');
+    pill.className = 'tab-indicator';
+    pill.setAttribute('aria-hidden', 'true');
+    bar.prepend(pill);
+  }
+  if (first) pill.style.transition = 'none';
+  pill.style.width = active.offsetWidth - 12 + 'px';
+  pill.style.transform = `translateX(${active.offsetLeft + 6}px)`;
+  if (first) {
+    void pill.offsetWidth;
+    pill.style.transition = '';
   }
 }
 
@@ -227,7 +241,7 @@ const FEED_HIDDEN = e => e.type === 'OFFLINE' || (e.type === 'POINTS' && e.detai
 
 function feedItem(e) {
   const [sym, title, sub] = eventView(e);
-  return `<li><span class="event-symbol" aria-hidden="true">${sym}</span><div><strong>${title}</strong><p>${sub}</p></div><time datetime="${esc(e.ts)}">${time(e.ts)}</time></li>`;
+  return `<li><span class="event-symbol" data-type="${esc(e.type)}" aria-hidden="true">${sym}</span><div><strong>${title}</strong><p>${sub}</p></div><time datetime="${esc(e.ts)}">${time(e.ts)}</time></li>`;
 }
 
 // Slots keep their DOM between refreshes so a running player is never reloaded.
@@ -597,6 +611,7 @@ function renderDrops() {
   const scouted = d.scouted || [];
   $('#scouted').innerHTML = `<h2>Drop-Suche</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'Diese Kanäle hat der Bot für laufende Kampagnen dazugeholt.' : 'Aktiv. Noch keine zusätzlichen Kanäle nötig.') : 'Ausgeschaltet. Nur deine eigenen Kanäle sammeln Drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
   $('#nav-drops').hidden = !d.campaigns.length;
+  $('.tab-dot').hidden = !d.campaigns.length;
   setPhase();
   enter('drops');
 }
@@ -912,6 +927,7 @@ function wire() {
       toast(e.message, true);
     }
   });
+  $('#logout-mobile').addEventListener('click', () => $('#logout').click());
   $('#logout').addEventListener('click', async () => {
     await fetch('/logout', { method: 'POST', credentials: 'same-origin', headers: { 'X-XSRF-TOKEN': csrfToken() || '' } });
     location.href = '/bye.html';
@@ -926,6 +942,8 @@ async function init() {
     const me = await api('/api/me');
     $('#me-name').textContent = me.name || 'Du';
     $('#me-initial').textContent = (me.name || '?').charAt(0).toUpperCase();
+    $('#me-name-mobile').textContent = me.name || 'Du';
+    $('#me-initial-mobile').textContent = (me.name || '?').charAt(0).toUpperCase();
   } catch (e) {
     return;
   }

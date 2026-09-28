@@ -23,6 +23,7 @@
 <symbol id="i-pin" viewBox="0 0 24 24"><path d="M9 3h6l-1 6 4 4H6l4-4-1-6ZM12 13v8"/></symbol>
 <symbol id="i-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7L8 5Z"/></symbol>
 <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 1v3m0 16v3M1 12h3m16 0h3M4 4l2 2m12 12 2 2M4 20l2-2M18 6l2-2"/></symbol>
+<symbol id="i-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z"/></symbol>
 <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
 <symbol id="i-chest" viewBox="0 0 24 24"><path d="M3 10a5 5 0 0 1 5-5h8a5 5 0 0 1 5 5v9H3v-9ZM3 12h18M11 11h2v3h-2z"/></symbol>
 </defs></svg>
@@ -46,7 +47,7 @@
 </aside>
 
 <div class="workspace">
-<header class="app-header"><span class="breadcrumb">twitchlurker <span aria-hidden="true">/</span> <strong id="breadcrumb">Übersicht</strong></span><div class="top-actions"><span class="live-state" id="live-label">Verbinde …</span><button class="icon-button" id="theme-toggle" aria-label="Farbschema wechseln"><svg><use href="#i-sun"/></svg></button></div></header>
+<header class="app-header"><a href="#overview" class="brand brand-mobile" aria-label="twitchlurker Übersicht"><span class="brand-mark"><svg><use href="#i-eye"/></svg></span><span>twitch<span class="brand-light">lurker</span></span></a><span class="breadcrumb">twitchlurker <span aria-hidden="true">/</span> <strong id="breadcrumb">Übersicht</strong></span><div class="top-actions"><span class="live-state" id="live-label">Verbinde …</span><a class="icon-button settings-link" href="#settings" aria-label="Einstellungen"><svg><use href="#i-gear"/></svg></a><button class="icon-button" id="theme-toggle" aria-label="Farbschema wechseln"><svg><use href="#i-sun"/></svg></button></div></header>
 <main id="main" tabindex="-1">
 <div id="state-banner" class="feedback error" hidden><div id="state-banner-text"></div><a class="action" href="#bot">Zum Login</a></div>
 
@@ -87,6 +88,7 @@
 <div class="page-heading"><div><p class="eyebrow">Hinter den Kulissen</p><h1 id="bot-title">Bot &amp; Login</h1><p class="lead">Einmal verbinden. Den Rest übernimmt der Bot.</p></div></div>
 <div class="bot-grid"><section class="panel bot-control"><p class="eyebrow">Status</p><h2 id="bot-state">…</h2><p id="account-state" class="meta"></p><dl class="facts"><div><dt>Gestartet</dt><dd id="started-at">–</dd></div><div><dt>Aktive Slots</dt><dd id="active-count">–</dd></div><div><dt>Neustarts</dt><dd id="restart-count">0</dd></div></dl><div class="button-row"><button class="primary" id="bot-toggle">…</button><button class="secondary" id="bot-restart">Neustart</button></div></section>
 <section class="panel login-panel"><p class="eyebrow">Twitch</p><h2 id="login-title">Dein Account</h2><p id="login-text" class="meta"></p><div id="device-login"></div></section></div>
+<section class="panel account-panel"><span class="avatar" id="me-initial-mobile">·</span><div><strong id="me-name-mobile">…</strong><p class="meta">Im Dashboard angemeldet über Authentik</p></div><button class="secondary" type="button" id="logout-mobile">Abmelden</button></section>
 <section class="panel log-panel"><div class="section-heading"><h2>Protokoll</h2><label class="switch-row compact"><span>Nur Wichtiges</span><input type="checkbox" id="log-filter" role="switch" checked></label></div><ol id="bot-log" class="bot-log" aria-label="Bot-Protokoll"></ol></section>
 </section>
 
@@ -104,6 +106,13 @@
 </main>
 </div>
 </div>
+<nav class="tabbar" aria-label="Navigation">
+<a href="#overview" aria-current="page"><svg><use href="#i-grid"/></svg><span>Übersicht</span></a>
+<a href="#channels"><svg><use href="#i-tv"/></svg><span>Kanäle</span></a>
+<a href="#drops"><svg><use href="#i-drop"/></svg><span>Drops</span><span class="nav-dot tab-dot" hidden></span></a>
+<a href="#raffles"><svg><use href="#i-ticket"/></svg><span>Raffles</span></a>
+<a href="#bot"><svg><use href="#i-bot"/></svg><span>Bot</span></a>
+</nav>
 
 <dialog id="channel-dialog" aria-labelledby="detail-name"><form method="dialog"><button class="icon-button close-dialog" aria-label="Schließen">×</button></form><p class="eyebrow">Kanal</p><h2 id="detail-name"></h2><p id="detail-info" class="meta"></p><dl class="detail-stats"><div><dt>Punktestand</dt><dd id="detail-points"></dd></div><div><dt>Heute</dt><dd id="detail-gain"></dd></div><div><dt>7 Tage</dt><dd id="detail-week"></dd></div></dl><h3>Punktestand · 30 Tage</h3><div id="detail-chart"></div><h3>Verlauf</h3><ol class="feed compact" id="detail-events"></ol><label class="switch-row"><span>An Raffles in diesem Kanal teilnehmen</span><input type="checkbox" id="detail-raffle" role="switch"></label></dialog>
 <div id="toast" class="toast" role="status" hidden></div>

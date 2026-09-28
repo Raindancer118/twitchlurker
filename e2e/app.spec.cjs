@@ -1,5 +1,9 @@
 const { test, expect } = require('@playwright/test');
 
+async function go(page, id) {
+  await page.locator(`nav a[href="#${id}"]:visible, a.settings-link[href="#${id}"]:visible`).first().click();
+}
+
 async function login(page) {
   // Keep e2e offline: preview images instead of live Twitch players.
   await page.addInitScript(() => localStorage.setItem('video', '0'));
@@ -29,12 +33,19 @@ for (const scheme of ['dark', 'light']) {
       await expect(page.locator('#stat-drops')).not.toHaveText('–');
       await expect(page.locator('#state-banner')).toBeHidden();
       await expect(page.locator('#slots .pin-icon').first()).toBeHidden();
+      const overflow = await page.evaluate(() => document.documentElement.scrollWidth - window.innerWidth);
+      expect(overflow).toBeLessThanOrEqual(0);
+      if (viewport.name === 'mobile') {
+        await expect(page.locator('.tabbar')).toBeVisible();
+        await expect(page.locator('.sidebar')).toBeHidden();
+        expect(await page.locator('#channel-search').evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+      }
       await expect(page.locator('#stat-today')).not.toHaveText('–');
       await expect(page.locator('#live-label')).toHaveText('Live');
       await page.waitForTimeout(4500);
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-overview.png`, fullPage: true });
 
-      await page.click('nav a[href="#channels"]');
+      await go(page, 'channels');
       await expect(page.locator('#channel-list .channel-row')).toHaveCount(4);
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-channels.png`, fullPage: true });
       await page.click('#channel-list [data-channel="zarbex"]');
@@ -43,21 +54,21 @@ for (const scheme of ['dark', 'light']) {
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-detail.png` });
       await page.keyboard.press('Escape');
 
-      await page.click('nav a[href="#drops"]');
+      await go(page, 'drops');
       await expect(page.locator('#campaigns')).toContainText('Hazmat Suit');
       await expect(page.locator('#campaigns')).toContainText('63 %');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-drops.png`, fullPage: true });
 
-      await page.click('nav a[href="#raffles"]');
+      await go(page, 'raffles');
       await expect(page.locator('#raffle-problem')).toContainText('chat:edit');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-raffles.png`, fullPage: true });
 
-      await page.click('nav a[href="#bot"]');
+      await go(page, 'bot');
       await expect(page.locator('#bot-state')).toHaveText('Läuft');
       await expect(page.locator('#device-login')).toContainText('tomlurkt');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-bot.png`, fullPage: true });
 
-      await page.click('nav a[href="#settings"]');
+      await go(page, 'settings');
       await expect(page.locator('#join-commands')).toHaveValue(/!join/);
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-settings.png`, fullPage: true });
       expect(errors).toEqual([]);
@@ -109,7 +120,7 @@ test('slots, order and motion', async ({ page }) => {
   await expect(page.locator('#toast')).toContainText('wieder automatisch');
 
   // Reorder with the keyboard buttons, then by dragging the grip.
-  await page.click('nav a[href="#channels"]');
+  await go(page, 'channels');
   await expect(page.locator('#channels.is-entering')).toHaveCount(1);
   await expect(page.locator('#channel-list .channel-row')).toHaveCount(4);
   await page.click('#channel-list [data-move="1"][data-login="papaplatte"]');
@@ -126,7 +137,7 @@ test('slots, order and motion', async ({ page }) => {
   await expect(page.locator('#channel-list .channel-row').first()).toHaveAttribute('data-login', 'gronkh');
   await page.waitForTimeout(5000);
   await page.reload();
-  await page.click('nav a[href="#channels"]');
+  await go(page, 'channels');
   await expect(page.locator('#channel-list .channel-row').first()).toHaveAttribute('data-login', 'gronkh', { timeout: 10_000 });
   await page.screenshot({ path: 'shots/order-after-reload.png', fullPage: true });
 

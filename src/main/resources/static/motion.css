@@ -19,11 +19,13 @@
   @keyframes vt-out{to{opacity:0;transform:translateY(-4px)}}
   @keyframes vt-in{from{opacity:0;transform:translateY(8px)}}
 
-  /* Active entry: narrow spring bar at the left edge (desktop sidebar only). */
-  @media (min-width:901px){
-    .sidebar nav a::before{content:"";position:absolute;left:-16px;top:25%;bottom:25%;width:2px;border-radius:0 2px 2px 0;background:#bf94ff;scale:1 0;transition:scale var(--dur) var(--ease-spring)}
-    .sidebar nav a[aria-current=page]::before{scale:1 1}
-  }
+  /* Mobile tab bar: the pill springs to the new tab, its icon pops once. */
+  .tab-indicator{transition:transform 420ms var(--ease-spring),width 420ms var(--ease-spring)}
+  .tabbar a[aria-current=page] svg{animation:pop 420ms var(--ease-spring)}
+  @keyframes pop{0%{scale:1}40%{scale:1.22}100%{scale:1}}
+  .tabbar a:active svg{scale:.88;transition:scale 120ms ease}
+  .brand-mark{transition:rotate var(--dur) var(--ease-spring),scale var(--dur) var(--ease-spring)}
+  .brand:hover .brand-mark{rotate:-8deg;scale:1.06}
   .sidebar nav a{transition:background var(--dur-fast) ease,color var(--dur-fast) ease}
 
   /* App entrance: sidebar and header fade in with a short path, nav entries staggered. */
@@ -57,19 +59,29 @@
   .is-entering .sparkline polyline,dialog[open] .chart-path{stroke-dasharray:1;animation:draw 700ms var(--ease-out) both;animation-delay:calc(120ms + min(var(--i,0),12) * var(--stagger))}
   @keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
 
-  /* Cards lift by 1px, buttons give way when pressed. */
-  .panel{transition:translate var(--dur-fast) var(--ease-out),box-shadow var(--dur-fast) ease}
-  :is(.slot,.campaign,.inventory-item):hover{translate:0 -1px;box-shadow:var(--shadow)}
+  /* Cards lift softly, buttons squish and spring back. */
+  :is(.panel,.stats-strip>div,.channel-row,.inventory-item,.raffle-entry){transition:translate var(--dur) var(--ease-spring),box-shadow var(--dur) ease}
+  :is(.slot,.campaign,.inventory-item,.stats-strip>div):hover{translate:0 -3px;box-shadow:var(--shadow-lift)}
+  .channel-row:hover,.raffle-entry:hover{translate:0 -2px}
+  .feed li{transition:background var(--dur-fast) ease,translate var(--dur) var(--ease-spring)}
+  .feed li:hover{translate:3px 0}
+  .stats-strip>div::before{animation:bubble 9s ease-in-out infinite;animation-delay:calc(-1 * var(--phase))}
+  .stats-strip>div:nth-child(2)::before{animation-duration:11s}
+  .stats-strip>div:nth-child(3)::before{animation-duration:10s}
+  .stats-strip>div:nth-child(4)::before{animation-duration:12s}
+  @keyframes bubble{50%{scale:1.25;translate:-6px 6px}}
+  progress::-webkit-progress-value{background-size:200% 100%;animation:shimmer 2.8s linear infinite}
+  progress::-moz-progress-bar{background-size:200% 100%;animation:shimmer 2.8s linear infinite}
+  progress[value="100"]::-webkit-progress-value,progress[value="100"]::-moz-progress-bar{animation:none}
+  @keyframes shimmer{from{background-position:100% 0}to{background-position:-100% 0}}
   button,.action,a.button-like{transition:background-color var(--dur-fast) ease,border-color var(--dur-fast) ease,color var(--dur-fast) ease,box-shadow var(--dur-fast) ease,translate var(--dur-fast) var(--ease-out),scale var(--dur-fast) var(--ease-out)}
-  .primary:not(:disabled):hover{translate:0 -1px;box-shadow:0 6px 14px -10px rgb(145 70 255 / .8)}
-  button:not(:disabled):active,.action:active{scale:.98;translate:0 0}
+  .primary:not(:disabled):hover{translate:0 -2px;box-shadow:0 10px 20px -10px rgb(145 70 255 / .9)}
+  button:not(:disabled):active,.action:active{scale:.95;translate:0 0;transition-duration:90ms}
 
-  /* Channel list: accent bar on hover, rows that changed flash their number, drag feedback. */
-  .channel-row::before{content:"";position:absolute;left:0;top:22%;bottom:22%;width:2px;background:var(--purple);scale:1 0;transition:scale var(--dur) var(--ease-spring)}
-  .channel-row:hover::before,.channel-row:focus-within::before{scale:1 1}
+  /* Channel list: rows that changed flash their number, drag feedback. */
   .channel-row.updated .value{animation:tick 700ms var(--ease-out)}
   @keyframes tick{40%{color:var(--purple)}}
-  .channel-row{transition:opacity var(--dur-fast) ease,box-shadow var(--dur-fast) ease}
+  .channel-row{transition:opacity var(--dur-fast) ease,box-shadow var(--dur-fast) ease,translate var(--dur) var(--ease-spring),scale var(--dur) var(--ease-spring)}
 
   /* Live data. */
   .feed li.fresh{animation:arrive 480ms var(--ease-spring) both,glint 1.6s ease-out 1}
@@ -87,8 +99,8 @@
   /* Feedback surfaces. */
   .switch-row input::after{transition:translate var(--dur) var(--ease-spring)}
   .switch-row input{transition:background var(--dur-fast) ease}
-  .toast{transition:opacity var(--dur) var(--ease-out),translate var(--dur) var(--ease-spring)}
-  @starting-style{.toast:not([hidden]){opacity:0;translate:0 12px}}
+  .toast{transition:opacity var(--dur) var(--ease-out),translate 420ms var(--ease-spring),scale 420ms var(--ease-spring)}
+  @starting-style{.toast:not([hidden]){opacity:0;translate:-50% 16px;scale:.9}}
   dialog[open]{transition:opacity var(--dur) var(--ease-out),scale var(--dur) var(--ease-spring)}
   @starting-style{dialog[open]{opacity:0;scale:.97}}
   dialog[open]::backdrop{transition:opacity var(--dur)}

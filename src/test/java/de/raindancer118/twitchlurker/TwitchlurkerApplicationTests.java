@@ -98,7 +98,7 @@ class TwitchlurkerApplicationTests {
 
     @Test
     void publicPagesGetTheirStylesWithoutLogin() throws Exception {
-        for (String path : new String[] {"/bye.html", "/denied.html", "/styles.css", "/motion.css", "/fonts/public-sans-400.woff2", "/icon.svg"}) {
+        for (String path : new String[] {"/bye.html", "/denied.html", "/styles.css", "/motion.css", "/fonts/nunito.woff2", "/icon.svg"}) {
             mvc.perform(get(path)).andExpect(status().isOk());
         }
         mvc.perform(get("/app.js")).andExpect(status().is3xxRedirection());
