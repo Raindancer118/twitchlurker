@@ -46,7 +46,7 @@ public class DashboardService {
 
     public record Drops(List<MinerState.Campaign> campaigns, List<MinerState.Claimed> claimed, Instant updatedAt,
                         List<MinerState.Streamer> scouted, boolean scoutEnabled, List<MinerState.CatalogueCampaign> catalogue,
-                        Instant catalogueUpdatedAt, List<String> watchGames) {}
+                        Instant catalogueUpdatedAt, List<String> watchGames, String catalogueAccess) {}
 
     public record Raffles(RaffleService.Status status, List<RaffleEntry> entries, long joinedToday, long wonTotal) {}
 
@@ -199,7 +199,8 @@ public class DashboardService {
         return new Drops(d.map(MinerState.Drops::campaigns).orElse(List.of()), d.map(MinerState.Drops::claimed).orElse(List.of()),
                 d.map(MinerState.Drops::receivedAt).orElse(null), scouted, settings.get().dropScout().enabled(),
                 state.catalogue().map(MinerState.Catalogue::campaigns).orElse(List.of()),
-                state.catalogue().map(MinerState.Catalogue::receivedAt).orElse(null), settings.get().dropScout().games());
+                state.catalogue().map(MinerState.Catalogue::receivedAt).orElse(null), settings.get().dropScout().games(),
+                state.catalogue().map(MinerState.Catalogue::access).orElse(null));
     }
 
     public Raffles raffles() {

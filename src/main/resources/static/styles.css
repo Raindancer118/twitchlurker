@@ -402,3 +402,4 @@ dialog h2{font-weight:900;font-size:1.9rem}
   .grip{width:44px}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
+#settings-form .settings-grid{padding-bottom:12px}#settings-form{padding-bottom:4px}

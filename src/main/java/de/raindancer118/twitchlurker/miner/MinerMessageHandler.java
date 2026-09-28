@@ -60,7 +60,7 @@ public class MinerMessageHandler {
                 case "drops" -> onDrops(node);
                 case "campaigns" -> {
                     MinerState.Catalogue parsed = catalogueReader.readValue(node);
-                    var catalogue = new MinerState.Catalogue(parsed.campaigns(), clock.instant());
+                    var catalogue = new MinerState.Catalogue(parsed.campaigns(), parsed.access(), clock.instant());
                     state.update(catalogue);
                     bus.publish("campaigns", catalogue);
                 }

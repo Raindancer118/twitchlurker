@@ -14,6 +14,8 @@ import threading
 import time
 import traceback
 
+import requests
+
 import lurker_core as core
 import lurker_watch
 
@@ -203,53 +205,73 @@ drops_wake = threading.Event()
 watch_games = []
 
 
+COMMUNITY_DROPS_URL = "https://twitch-drops-api.sunkwi.com/drops"
+
+
+def fetch_community_drops(url):
+    # Twitch only lists campaigns to integrity-protected web/app clients; this public community mirror has the same objects.
+    r = requests.get(url, timeout=30, headers={"User-Agent": "twitchlurker (+https://github.com/Raindancer118)"})
+    r.raise_for_status()
+    data = r.json()
+    return data if isinstance(data, list) else None
+
+
 def drops_loop(miner, config):
-    """Every 10 min (or when the watchlist changes): publish the full campaign catalogue, then scout channels."""
+    """Every 10 min (or when the watchlist changes): publish the campaign catalogue, then scout drop streams."""
     scout = config.get("dropScout") or {}
     per_game = int(scout.get("channelsPerGame", 2))
     require_linked = bool(scout.get("requireLinked", True))
     scouting = scout.get("enabled", True)
     blacklist = {b.lower() for b in config.get("blacklist", [])}
+    url = config.get("communityDropsUrl") or COMMUNITY_DROPS_URL
     query = copy.deepcopy(GAME_DIRECTORY)
     if config.get("gameDirectoryHash"):
         query["extensions"]["persistedQuery"]["sha256Hash"] = config["gameDirectoryHash"]
+    community, fetched_at = None, 0.0
     wait_until_running(miner)
     drops_wake.wait(45)
     while miner.running:
         drops_wake.clear()
         try:
             twitch = miner.twitch
-            dashboard = twitch._Twitch__get_drops_dashboard() or []
-            relevant = [c for c in dashboard if c.get("status") in ("ACTIVE", "UPCOMING")]
-            details = {d["id"]: d for d in twitch._Twitch__get_campaigns_details(relevant) if d and d.get("id")}
-            catalogue = core.campaign_catalogue(dashboard, details, watch_games)
-            emit({"t": "campaigns", "campaigns": catalogue})
+            if community is None or time.time() - fetched_at > 1800:
+                try:
+                    community = fetch_community_drops(url) or community
+                    fetched_at = time.time()
+                except Exception as e:
+                    emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Liste nicht erreichbar: {e}"})
+            inventory = twitch._Twitch__get_inventory() or {}
+            catalogue = core.community_catalogue(community, watch_games, core.linked_from_inventory(inventory))
+            access = "community" if community is not None else "unavailable"
+            emit({"t": "campaigns", "campaigns": catalogue, "access": access})
             emit({"t": "log", "level": "INFO", "logger": "runner",
-                  "msg": f"Drop-Katalog: {len(catalogue)} Kampagnen, Details für {len(details)}, beobachtet: {', '.join(watch_games) or '–'}"})
+                  "msg": f"Drop-Katalog: {len(catalogue)} Kampagnen ({access}), beobachtet: {', '.join(watch_games) or '–'}"})
 
             if scouting:
-                inv = core.inventory_snapshot(twitch._Twitch__get_inventory())
-                games = core.games_to_scout(dashboard, core.finished_campaign_ids(inv), require_linked, watch_games)
                 known = {s.username for s in miner.streamers} | blacklist
-                for game in games:
-                    live_for_game = [s for s in miner.streamers if s.is_online and (s.stream.game or {}).get("id") == game["id"]]
+                for target in core.scout_targets(watch_games, inventory, require_linked):
+                    name = target["displayName"].lower()
+                    live_for_game = [s for s in miner.streamers
+                                     if s.is_online and ((s.stream.game or {}).get("displayName") or "").lower() == name]
                     missing = per_game - len(live_for_game)
                     if missing <= 0:
                         continue
-                    # Channel-restricted campaigns only count on their listed channels.
+                    # Only restrict to listed channels if every known campaign for the game is channel-restricted.
+                    game_campaigns = [c for c in catalogue if (c["game"] or "").lower() == name]
                     allowed = set()
-                    for c in catalogue:
-                        if c["gameId"] == game["id"] and c["status"] == "ACTIVE":
-                            if not c["channels"]:
-                                allowed = set()
-                                break
+                    if game_campaigns and all(c["channels"] for c in game_campaigns):
+                        for c in game_campaigns:
                             allowed.update(c["channels"])
                     q = copy.deepcopy(query)
-                    q["variables"]["slug"] = core.game_slug(game)
+                    q["variables"]["slug"] = core.game_slug(target)
                     response = twitch.post_gql_request(q)
-                    for login in core.pick_directory_channels(response, known, missing, allowed=allowed or None):
+                    picked = core.pick_directory_channels(response, known, missing, allowed=allowed or None)
+                    for login in picked:
                         if add_streamer(miner, login, "drops"):
                             known.add(login)
+                    if picked:
+                        emit({"t": "log", "level": "INFO", "logger": "runner",
+                              "msg": f"Drops für {target['displayName']}: lurke {', '.join(picked)}"})
                     time.sleep(random.uniform(1, 3))
         except Exception as e:
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Suche fehlgeschlagen: {e}"})
@@ -334,6 +356,7 @@ def main():
     core.write_cookies(os.path.join("cookies", f"{token['login']}.pkl"), token["accessToken"], token["userId"])
     extra_logins.update(s.lower() for s in config.get("streamers", []))
     lurker_watch.control["pinned"] = core.normalize_slots(config.get("slots"))
+    lurker_watch.control["scouted"] = scouted
     watch_games[:] = [str(g) for g in (config.get("dropScout") or {}).get("games", [])]
     order[:] = [o.lower() for o in config.get("order", [])]
 

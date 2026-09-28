@@ -18,7 +18,7 @@ import lurker_core as core
 logger = logging.getLogger("TwitchChannelPointsMiner.classes.Twitch")
 
 # Mutated by the runner's command loop; read on every iteration.
-control = {"pinned": [None, None]}
+control = {"pinned": [None, None], "scouted": set()}
 
 
 def _send_minute(twitch, streamer):
@@ -78,7 +78,7 @@ def send_minute_watched_events(self, streamers, priority, chunk_size=3):
                 if s.is_online and (s.online_at == 0 or now - s.online_at > 30) and s.stream.update_elapsed() / 60 > 10:
                     self.check_streamer_online(s)
 
-            watching = [streamers[i] for i in core.choose_watching(streamers, priority, control["pinned"], time.time())]
+            watching = [streamers[i] for i in core.choose_watching(streamers, priority, control["pinned"], time.time(), scouted=control.get("scouted"))]
             for streamer in watching:
                 next_iteration = time.time() + 20 / len(watching)
                 try:

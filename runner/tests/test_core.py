@@ -107,20 +107,6 @@ def test_inventory_snapshot_tolerates_empty():
     assert core.inventory_snapshot({"dropCampaignsInProgress": None, "gameEventDrops": None}) == {"campaigns": [], "claimed": []}
 
 
-def test_campaigns_needing_channels_only_linked_and_unfinished():
-    dashboard = [
-        {"id": "a", "status": "ACTIVE", "game": {"id": "1", "displayName": "Rust"}, "self": {"isAccountConnected": True}},
-        {"id": "b", "status": "ACTIVE", "game": {"id": "2", "displayName": "Valorant"}, "self": {"isAccountConnected": False}},
-        {"id": "c", "status": "EXPIRED", "game": {"id": "3", "displayName": "Dota 2"}, "self": {"isAccountConnected": True}},
-        {"id": "d", "status": "ACTIVE", "game": {"id": "1", "displayName": "Rust"}, "self": {"isAccountConnected": True}},
-    ]
-    finished = {"d"}
-    games = core.games_to_scout(dashboard, finished_campaign_ids=finished, require_linked=True)
-    assert games == [{"id": "1", "displayName": "Rust"}]
-    games_all = core.games_to_scout(dashboard, finished_campaign_ids=set(), require_linked=False)
-    assert [g["displayName"] for g in games_all] == ["Rust", "Valorant"]
-
-
 def test_finished_campaigns_from_inventory():
     inv = core.inventory_snapshot(INVENTORY)
     assert core.finished_campaign_ids(inv) == set()
@@ -224,48 +210,12 @@ def test_follow_changes_ignores_empty_follow_list():
     assert core.follow_changes(followers=[], current=["a"], extra=set(), scouted=set(), blacklist=set()) == ([], [])
 
 
-DASH = [
-    {"id": "mc1", "name": "Minecraft Live", "status": "ACTIVE", "startAt": "2026-09-27T00:00:00Z", "endAt": "2026-10-05T00:00:00Z",
-     "game": {"id": "27471", "displayName": "Minecraft", "boxArtURL": "https://x/mc-{width}x{height}.jpg"},
-     "self": {"isAccountConnected": False}, "accountLinkURL": "https://link/mc"},
-    {"id": "rust1", "name": "Rust #40", "status": "ACTIVE", "startAt": "2026-09-20T00:00:00Z", "endAt": "2026-10-02T00:00:00Z",
-     "game": {"id": "263490", "displayName": "Rust"}, "self": {"isAccountConnected": True}},
-    {"id": "val1", "name": "Valorant Champs", "status": "UPCOMING", "startAt": "2026-10-10T00:00:00Z", "endAt": "2026-10-20T00:00:00Z",
-     "game": {"id": "516575", "displayName": "VALORANT"}, "self": {"isAccountConnected": False}},
-    {"id": "old", "name": "Old", "status": "EXPIRED", "game": {"id": "1", "displayName": "X"}, "self": {}},
-]
-DETAILS = {
-    "mc1": {"id": "mc1", "allow": {"channels": [{"id": "1", "name": "PapaPlatte"}, {"id": "2", "name": "gronkh"}], "isEnabled": True},
-            "timeBasedDrops": [{"id": "d", "name": "Cape", "requiredMinutesWatched": 60,
-                                "benefitEdges": [{"benefit": {"name": "Twitch Cape", "imageAssetURL": "https://x/cape.png"}}]}]},
-    "rust1": {"id": "rust1", "allow": {"channels": None}, "timeBasedDrops": []},
-}
-
-
-def test_campaign_catalogue():
-    cat = core.campaign_catalogue(DASH, DETAILS, watch_games=["minecraft"])
-    assert [c["id"] for c in cat] == ["mc1", "rust1", "val1"]
-    mc = cat[0]
-    assert mc["watched"] is True and mc["linked"] is False and mc["linkUrl"] == "https://link/mc"
-    assert mc["image"] == "https://x/mc-285x380.jpg"
-    assert mc["channels"] == ["papaplatte", "gronkh"]
-    assert mc["rewards"] == [{"name": "Twitch Cape", "image": "https://x/cape.png", "minutes": 60}]
-    assert cat[1]["channels"] == [] and cat[1]["watched"] is False
-    assert cat[2]["status"] == "UPCOMING"
-
-
 def test_game_watch_matching():
     assert core.game_watched({"displayName": "Minecraft"}, ["minecraft"])
     assert core.game_watched({"displayName": "Tom Clancy's Rainbow Six Siege"}, ["rainbow six siege"]) is False
     assert core.game_watched({"displayName": "Tom Clancy's Rainbow Six Siege"}, ["tom-clancys-rainbow-six-siege"])
     assert core.game_watched({"displayName": "VALORANT"}, ["Valorant"])
     assert not core.game_watched({"displayName": "Rust"}, [])
-
-
-def test_games_to_scout_includes_watched_games_first_even_unlinked():
-    games = core.games_to_scout(DASH, finished_campaign_ids=set(), require_linked=True, watch_games=["minecraft"])
-    assert [g["displayName"] for g in games] == ["Minecraft", "Rust"]
-    assert [g["displayName"] for g in core.games_to_scout(DASH, set(), True)] == ["Rust"]
 
 
 def test_pick_directory_channels_respects_allow_list():
@@ -275,3 +225,58 @@ def test_pick_directory_channels_respects_allow_list():
     ]}}}}
     assert core.pick_directory_channels(resp, exclude=set(), limit=2, allowed=["papaplatte", "gronkh"]) == ["gronkh"]
     assert core.pick_directory_channels(resp, exclude=set(), limit=2, allowed=[]) == ["random", "gronkh"]
+
+
+def test_choose_watching_treats_scouted_drop_channels_as_drop_candidates():
+    # TCPM's own campaign detection is blind with the TV client, so scouted channels would never win the DROPS priority.
+    ss = [_s("a"), _s("b"), _s("mcstreamer")]
+    assert names(ss, core.choose_watching(ss, PRIO, [None, None], now=1000)) == ["a", "b"]
+    assert names(ss, core.choose_watching(ss, PRIO, [None, None], now=1000, scouted={"mcstreamer"})) == ["mcstreamer", "a"]
+
+
+COMMUNITY = [
+    {"gameId": "27471", "gameDisplayName": "Minecraft", "gameBoxArtURL": "https://x/mc-120x160.jpg", "rewards": [
+        {"id": "mc1", "name": "Minecraft Live", "status": "ACTIVE", "startAt": "2026-09-27T00:00:00Z", "endAt": "2026-10-05T00:00:00Z",
+         "accountLinkURL": "https://link/mc", "allow": {"isEnabled": True, "channels": [{"id": "1", "name": "PapaPlatte"}]},
+         "game": {"id": "27471", "name": "Minecraft"},
+         "timeBasedDrops": [{"name": "Cape", "requiredMinutesWatched": 60,
+                             "benefitEdges": [{"benefit": {"name": "Twitch Cape", "imageAssetURL": "https://x/cape.png"}}]}]}]},
+    {"gameId": "263490", "gameDisplayName": "Rust", "gameBoxArtURL": None, "rewards": [
+        {"id": "rust1", "name": "Rust #40", "status": "ACTIVE", "endAt": "2026-10-02T00:00:00Z", "allow": {"isEnabled": False},
+         "timeBasedDrops": []}]},
+]
+
+
+def test_community_catalogue_marks_watched_and_linked_from_inventory():
+    cat = core.community_catalogue(COMMUNITY, watch_games=["minecraft"], linked={"rust1": True, "mc1": False})
+    assert [c["id"] for c in cat] == ["mc1", "rust1"]
+    mc = cat[0]
+    assert mc["game"] == "Minecraft" and mc["gameId"] == "27471" and mc["watched"] is True
+    assert mc["image"] == "https://x/mc-120x160.jpg" and mc["linkUrl"] == "https://link/mc"
+    assert mc["channels"] == ["papaplatte"] and mc["rewards"][0]["minutes"] == 60
+    assert mc["linked"] is False and cat[1]["linked"] is True
+    # Channel list only counts when the restriction is enabled.
+    assert cat[1]["channels"] == []
+    assert core.community_catalogue(None, [], {}) == []
+    assert core.community_catalogue({"error": "x"}, [], {}) == []
+
+
+def test_linked_from_inventory():
+    inv = {"dropCampaignsInProgress": [{"id": "rust1", "self": {"isAccountConnected": True}}, {"id": "x", "self": {}}]}
+    assert core.linked_from_inventory(inv) == {"rust1": True, "x": False}
+    assert core.linked_from_inventory(None) == {}
+
+
+def test_scout_targets_watched_games_by_name_and_linked_inventory_games():
+    inv = {"dropCampaignsInProgress": [
+        {"id": "rust1", "self": {"isAccountConnected": True}, "game": {"id": "263490", "displayName": "Rust"},
+         "timeBasedDrops": [{"self": {"isClaimed": False}}]},
+        {"id": "done", "self": {"isAccountConnected": True}, "game": {"id": "9", "displayName": "Done Game"},
+         "timeBasedDrops": [{"self": {"isClaimed": True}}]},
+        {"id": "nolink", "self": {"isAccountConnected": False}, "game": {"id": "8", "displayName": "Unlinked"},
+         "timeBasedDrops": [{"self": {"isClaimed": False}}]},
+    ]}
+    targets = core.scout_targets(["Minecraft"], inv, require_linked=True)
+    assert [(t["displayName"], t["watched"]) for t in targets] == [("Minecraft", True), ("Rust", False)]
+    assert core.game_slug(targets[0]) == "minecraft"
+    assert [t["displayName"] for t in core.scout_targets([], inv, require_linked=False)] == ["Rust", "Unlinked"]

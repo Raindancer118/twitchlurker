@@ -655,22 +655,25 @@ function renderCatalogue() {
     if (filter === 'watched' && !c.watched && !isWatched(c.game)) return false;
     if (filter === 'active' && c.status !== 'ACTIVE') return false;
     if (filter === 'upcoming' && c.status !== 'UPCOMING') return false;
-    if (filter === 'linked' && !c.linked) return false;
+    if (filter === 'linked' && c.linked !== true) return false;
     if (!q) return true;
     return [c.game, c.name, ...c.rewards.map(r => r.name)].some(v => (v || '').toLowerCase().includes(q));
   });
   const updated = state.drops?.catalogueUpdatedAt;
+  const access = state.drops?.catalogueAccess;
   $('#catalogue-meta').textContent = all.length
-    ? `${list.length} von ${all.length} Kampagnen${updated ? ' · Stand ' + time(updated) + ' Uhr' : ''}`
-    : 'Der Bot lädt die Kampagnen nach dem Start (dauert ein, zwei Minuten).';
+    ? `${list.length} von ${all.length} Kampagnen${updated ? ' · Stand ' + time(updated) + ' Uhr' : ''} · Quelle: Community-Liste twitch-drops-api.sunkwi.com`
+    : access === 'unavailable'
+      ? 'Die Drop-Liste ist gerade nicht erreichbar. Beobachtete Spiele sucht der Bot trotzdem direkt auf Twitch.'
+      : 'Der Bot lädt die Kampagnen (dauert ein, zwei Minuten nach dem Start).';
   $('#catalogue-grid').innerHTML = list.map(c => {
     const watched = c.watched || isWatched(c.game);
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
     const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${fmt(r.minutes)} Min.</small></li>`).join('');
     const more = c.rewards.length > 6 ? `<li class="meta">+${c.rewards.length - 6} weitere</li>` : '';
     const where = c.channels.length ? `Nur bei ${c.channels.length} Kanälen` : 'Bei allen Drop-Streams';
-    const link = !c.linked && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Account verknüpfen <svg><use href="#i-arrow"/></svg></a>` : '';
-    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Läuft' : 'Bald'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked ? '<span class="positive">✓ verknüpft</span>' : 'nicht verknüpft'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Beobachtet ✓' : 'Beobachten'}</button></div></div></article>`;
+    const link = c.linked !== true && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Account verknüpfen <svg><use href="#i-arrow"/></svg></a>` : '';
+    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Läuft' : 'Bald'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked === true ? '<span class="positive">✓ verknüpft</span>' : c.linked === false ? 'nicht verknüpft' : 'Verknüpfung unbekannt'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Beobachtet ✓' : 'Beobachten'}</button></div></div></article>`;
   }).join('') || '<div class="panel"><p class="meta">Nichts gefunden.</p></div>';
 }
 
@@ -951,6 +954,7 @@ function connectLive() {
     const c = JSON.parse(ev.data);
     if (state.drops) {
       state.drops.catalogue = c.campaigns;
+      state.drops.catalogueAccess = c.access;
       state.drops.catalogueUpdatedAt = c.receivedAt;
       if (currentScreen() === 'drops') {
         renderWatchlist();

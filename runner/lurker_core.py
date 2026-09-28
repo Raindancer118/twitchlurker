@@ -119,51 +119,6 @@ def game_watched(game: dict, watch_games) -> bool:
     return name in wanted or game_slug(game) in wanted
 
 
-def games_to_scout(dashboard: list, finished_campaign_ids: set, require_linked: bool, watch_games=None) -> list:
-    """Games with an active campaign worth farming; games on the watchlist come first and don't need a linked account."""
-    watched, others, seen = [], [], set()
-    for c in dashboard or []:
-        if c.get("status") != "ACTIVE" or c.get("id") in finished_campaign_ids:
-            continue
-        game = c.get("game") or {}
-        if not game.get("id") or game["id"] in seen:
-            continue
-        is_watched = game_watched(game, watch_games)
-        if not is_watched and require_linked and not (c.get("self") or {}).get("isAccountConnected"):
-            continue
-        seen.add(game["id"])
-        (watched if is_watched else others).append(game)
-    return watched + others
-
-
-def campaign_catalogue(dashboard: list, details: dict, watch_games=None) -> list:
-    """Every active or upcoming campaign, enriched with rewards and channel restrictions for the dashboard."""
-    out = []
-    for c in dashboard or []:
-        if c.get("status") not in ("ACTIVE", "UPCOMING"):
-            continue
-        d = (details or {}).get(c["id"]) or {}
-        game = c.get("game") or {}
-        allow = d.get("allow") or {}
-        channels = [ch.get("name", "").lower() for ch in (allow.get("channels") or []) if ch and ch.get("name")]
-        rewards = []
-        for drop in d.get("timeBasedDrops") or []:
-            for edge in drop.get("benefitEdges") or []:
-                b = (edge or {}).get("benefit") or {}
-                rewards.append({"name": b.get("name") or drop.get("name"), "image": b.get("imageAssetURL"),
-                                "minutes": int(drop.get("requiredMinutesWatched") or 0)})
-        out.append({
-            "id": c["id"], "name": c.get("name"), "game": game.get("displayName") or game.get("name"),
-            "gameId": game.get("id"), "image": _box_art(game.get("boxArtURL")), "status": c.get("status"),
-            "startAt": c.get("startAt"), "endAt": c.get("endAt"),
-            "linked": bool((c.get("self") or {}).get("isAccountConnected")),
-            "linkUrl": c.get("accountLinkURL") or d.get("accountLinkURL"),
-            "channels": channels, "rewards": rewards, "watched": game_watched(game, watch_games),
-        })
-    out.sort(key=lambda x: (not x["watched"], x["status"] != "ACTIVE", x["endAt"] or ""))
-    return out
-
-
 def pick_directory_channels(response: dict, exclude: set, limit: int, allowed=None) -> list:
     game = ((response or {}).get("data") or {}).get("game") or {}
     edges = ((game.get("streams") or {}).get("edges")) or []
@@ -199,7 +154,7 @@ def apply_order(streamers: list, order) -> None:
     streamers.sort(key=lambda s: (rank.get(s.username, len(rank)), original[id(s)]))
 
 
-def choose_watching(streamers: list, priority: list, pinned: list, now: float, max_watch: int = 2) -> list:
+def choose_watching(streamers: list, priority: list, pinned: list, now: float, max_watch: int = 2, scouted=None) -> list:
     """Indices to watch: online pinned slots first, the rest exactly like TCPM 2.0.7's priority loop."""
     online = [i for i, s in enumerate(streamers)
               if s.is_online and (s.online_at == 0 or now - s.online_at > 30)]
@@ -230,7 +185,8 @@ def choose_watching(streamers: list, priority: list, pinned: list, now: float, m
                  and (streamers[i].offline_at == 0 or (now - streamers[i].offline_at) // 60 > 30)
                  and streamers[i].stream.minute_watched < 7])
         elif prior == Priority.DROPS:
-            add([i for i in online if streamers[i].drops_condition()])
+            scouted = scouted or set()
+            add([i for i in online if streamers[i].username in scouted or streamers[i].drops_condition()])
         elif prior == Priority.SUBSCRIBED:
             with_multiplier = [i for i in online if streamers[i].viewer_has_points_multiplier()]
             add(sorted(with_multiplier, key=lambda i: streamers[i].total_points_multiplier(), reverse=True))
@@ -246,3 +202,56 @@ def follow_changes(followers, current, extra, scouted, blacklist):
     added = [f for f in followers if f not in current_set and f not in blacklist]
     removed = [c for c in current if c not in follow_set and c not in extra and c not in scouted]
     return added, removed
+
+
+def linked_from_inventory(inventory) -> dict:
+    return {c["id"]: bool((c.get("self") or {}).get("isAccountConnected"))
+            for c in ((inventory or {}).get("dropCampaignsInProgress") or []) if c.get("id")}
+
+
+def community_catalogue(data, watch_games, linked) -> list:
+    """Active campaigns from the community drops list (Twitch's own campaign objects, grouped by game)."""
+    if not isinstance(data, list):
+        return []
+    out = []
+    for group in data:
+        game = {"id": group.get("gameId"), "displayName": group.get("gameDisplayName")}
+        for c in group.get("rewards") or []:
+            if c.get("status", "ACTIVE") not in ("ACTIVE", "UPCOMING"):
+                continue
+            allow = c.get("allow") or {}
+            channels = [ch.get("name", "").lower() for ch in (allow.get("channels") or []) if ch and ch.get("name")] \
+                if allow.get("isEnabled") else []
+            rewards = []
+            for drop in c.get("timeBasedDrops") or []:
+                for edge in drop.get("benefitEdges") or []:
+                    b = (edge or {}).get("benefit") or {}
+                    rewards.append({"name": b.get("name") or drop.get("name"), "image": b.get("imageAssetURL"),
+                                    "minutes": int(drop.get("requiredMinutesWatched") or 0)})
+            out.append({
+                "id": c.get("id"), "name": c.get("name"), "game": game["displayName"], "gameId": game["id"],
+                "image": _box_art(group.get("gameBoxArtURL")) or c.get("imageURL"), "status": c.get("status", "ACTIVE"),
+                "startAt": c.get("startAt"), "endAt": c.get("endAt"), "linked": (linked or {}).get(c.get("id")),
+                "linkUrl": c.get("accountLinkURL"), "channels": channels, "rewards": rewards,
+                "watched": game_watched(game, watch_games),
+            })
+    out.sort(key=lambda x: (not x["watched"], x["status"] != "ACTIVE", x["endAt"] or ""))
+    return out
+
+
+def scout_targets(watch_games, inventory, require_linked: bool) -> list:
+    """Games to look for drop streams: watched games (by name, no catalogue needed) first, then running linked campaigns."""
+    targets, seen = [], set()
+    for name in watch_games or []:
+        if name and name.strip() and name.strip().lower() not in seen:
+            seen.add(name.strip().lower())
+            targets.append({"displayName": name.strip(), "id": None, "watched": True})
+    for c in (inventory or {}).get("dropCampaignsInProgress") or []:
+        game = c.get("game") or {}
+        name = (game.get("displayName") or game.get("name") or "").strip()
+        unfinished = any(not ((d.get("self") or {}).get("isClaimed")) for d in c.get("timeBasedDrops") or [])
+        linked = bool((c.get("self") or {}).get("isAccountConnected"))
+        if name and unfinished and (linked or not require_linked) and name.lower() not in seen:
+            seen.add(name.lower())
+            targets.append({**game, "displayName": name, "watched": False})
+    return targets

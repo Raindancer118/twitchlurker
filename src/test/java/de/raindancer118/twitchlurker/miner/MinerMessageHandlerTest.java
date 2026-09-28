@@ -81,11 +81,12 @@ class MinerMessageHandlerTest {
 
         handler.handleStdout("{\"t\":\"campaigns\",\"campaigns\":[{\"id\":\"mc1\",\"name\":\"Minecraft Live\",\"game\":\"Minecraft\",\"gameId\":\"27471\","
                 + "\"image\":null,\"status\":\"ACTIVE\",\"startAt\":\"2026-09-27T00:00:00Z\",\"endAt\":\"2026-10-05T00:00:00Z\",\"linked\":false,"
-                + "\"linkUrl\":\"https://link\",\"channels\":[\"gronkh\"],\"rewards\":[{\"name\":\"Cape\",\"image\":null,\"minutes\":60}],\"watched\":true}]}");
+                + "\"linkUrl\":\"https://link\",\"channels\":[\"gronkh\"],\"rewards\":[{\"name\":\"Cape\",\"image\":null,\"minutes\":60}],\"watched\":true}],\"access\":\"missing\"}");
         var catalogue = state.catalogue().orElseThrow();
         assertThat(catalogue.campaigns()).hasSize(1);
         assertThat(catalogue.campaigns().getFirst().rewards().getFirst().minutes()).isEqualTo(60);
         assertThat(catalogue.campaigns().getFirst().watched()).isTrue();
+        assertThat(catalogue.access()).isEqualTo("missing");
 
         handler.handleStdout("{\"t\":\"log\",\"level\":\"INFO\",\"logger\":\"x\",\"msg\":\"Loading data for 12 streamers\"}");
         handler.handleStdout("not json at all");

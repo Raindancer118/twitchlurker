@@ -29,7 +29,8 @@ public class MinerState {
                                     String startAt, String endAt, boolean linked, String linkUrl, List<String> channels,
                                     List<Reward> rewards, boolean watched) {}
 
-    public record Catalogue(List<CatalogueCampaign> campaigns, Instant receivedAt) {}
+    /** access: "ok" (Android token works), "missing" (no drops login yet), "rejected" (token no longer accepted). */
+    public record Catalogue(List<CatalogueCampaign> campaigns, String access, Instant receivedAt) {}
 
     public record LogLine(Instant ts, String level, String source, String msg) {}
 
