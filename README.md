@@ -21,6 +21,6 @@ Dev-Start ohne Authentik: `LURKER_DEV_PASSWORD=… java -jar target/twitchlurker
 
 ## Betrieb
 
-Push auf `main` → GitHub Actions testet und deployt auf glaedr (`/home/oromis/twitchlurker`, `docker compose`). Konfiguration in `.env` auf dem Server, siehe `.env.example`. Daten im Volume `twitchlurker_lurker-data` (`/data`: SQLite, Settings, Twitch-Token mit 0600).
+Push auf `main` → GitHub Actions testet und deployt per SSH auf den Server (`~/twitchlurker`, `docker compose`; Ziel in den Secrets `DEPLOY_HOST`/`DEPLOY_USER`). Konfiguration in `.env` auf dem Server, siehe `.env.example`. Daten im Volume `twitchlurker_lurker-data` (`/data`: SQLite, Settings, Twitch-Token mit 0600).
 
 Releases: `git tag X.Y.Z && git push origin X.Y.Z`.

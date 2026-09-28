@@ -66,6 +66,9 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     environment: glaedr
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      DEPLOY_USER: ${{ secrets.DEPLOY_USER }}
     steps:
       - uses: actions/checkout@v4
       - name: SSH setup
@@ -78,27 +81,27 @@ jobs:
           rsync -az --delete \
             --exclude '.env' --exclude '*.env' --exclude '.env.*' \
             --exclude '.git' --exclude 'data/' --exclude 'prototype/' --exclude 'e2e/' --exclude 'target/' \
-            ./ oromis@92.5.78.34:/home/oromis/twitchlurker/
+            ./ "$DEPLOY_USER@$DEPLOY_HOST:twitchlurker/"
       - name: Build and restart on glaedr (arm64)
         run: |
-          ssh oromis@92.5.78.34 'cd /home/oromis/twitchlurker && test -f .env && docker compose build --pull'
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" 'cd ~/twitchlurker && test -f .env && docker compose build --pull'
       - name: Smoke-test the runner inside the new image (before it goes live)
         run: |
-          ssh oromis@92.5.78.34 "cd /home/oromis/twitchlurker && docker compose run --rm --no-deps --entrypoint /opt/venv/bin/python twitchlurker -c 'import sys; sys.path.insert(0, \"/app/runner\"); import lurker_core, lurker_watch, lurker_runner; lurker_runner.install_hooks(); print(\"runner ok\", file=sys.stderr)'"
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" "cd ~/twitchlurker && docker compose run --rm --no-deps --entrypoint /opt/venv/bin/python twitchlurker -c 'import sys; sys.path.insert(0, \"/app/runner\"); import lurker_core, lurker_watch, lurker_runner; lurker_runner.install_hooks(); print(\"runner ok\", file=sys.stderr)'"
       - name: Switch to the new image
         run: |
-          ssh oromis@92.5.78.34 'cd /home/oromis/twitchlurker && docker compose up -d'
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" 'cd ~/twitchlurker && docker compose up -d'
       - name: Wait for health
         run: |
           for i in $(seq 1 40); do
-            status=$(ssh oromis@92.5.78.34 "docker inspect -f '{{.State.Health.Status}}' twitchlurker" || true)
+            status=$(ssh "$DEPLOY_USER@$DEPLOY_HOST" "docker inspect -f '{{.State.Health.Status}}' twitchlurker" || true)
             echo "health: $status"
             if [ "$status" = "healthy" ]; then
               curl -fsS https://twitchlurker.raindancer118.de/actuator/health && exit 0
             fi
             sleep 6
           done
-          ssh oromis@92.5.78.34 'docker logs --tail 80 twitchlurker'
+          ssh "$DEPLOY_USER@$DEPLOY_HOST" 'docker logs --tail 80 twitchlurker'
           exit 1
 
   release:
