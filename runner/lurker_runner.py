@@ -277,6 +277,9 @@ def drops_loop(miner, config):
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Suche fehlgeschlagen: {e}"})
         drops_wake.wait(int(scout.get("intervalSeconds", 600)))
 
+follow_lock = threading.Lock()
+
+
 def sync_follows(miner, config):
     if not config.get("followers", True):
         return

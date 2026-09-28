@@ -28,8 +28,10 @@ jobs:
       - name: Runner dependencies
         run: |
           grep -v '^Twitch-Channel' runner/requirements.txt > /tmp/deps.txt
-          pip install -r /tmp/deps.txt pytest pip-audit
+          pip install -r /tmp/deps.txt pytest pip-audit pyflakes
           pip install --no-deps "$(grep '^Twitch-Channel' runner/requirements.txt)"
+      - name: Python static check (undefined names etc.)
+        run: python -m pyflakes runner/lurker_runner.py runner/lurker_core.py runner/lurker_watch.py
       - name: Python tests
         run: python -m pytest -q runner/tests
       - name: Python dependency audit
