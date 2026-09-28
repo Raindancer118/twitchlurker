@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-label="twitchlurker – lurkt rund um die Uhr auf Twitch und sammelt deine Belohnungen">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1a1025"/>
+      <stop offset="0.55" stop-color="#3b1d73"/>
+      <stop offset="1" stop-color="#9146ff"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="0.78" cy="0.3" r="0.6">
+      <stop offset="0" stop-color="#bf94ff" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#bf94ff" stop-opacity="0"/>
+    </radialGradient>
+    <clipPath id="card"><rect width="1280" height="340" rx="28"/></clipPath>
+    <style>
+      .float { animation: float 7s ease-in-out infinite; }
+      .float.b { animation-duration: 9s; animation-delay: -3s; }
+      .float.c { animation-duration: 11s; animation-delay: -6s; }
+      .pulse { animation: pulse 2.4s ease-out infinite; transform-box: fill-box; transform-origin: center; }
+      .blink { animation: blink 5s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+      .points { animation: rise 4s ease-in-out infinite; }
+      .points.b { animation-delay: -2s; }
+      @keyframes float { 50% { transform: translateY(-14px); } }
+      @keyframes pulse { 0% { opacity: .9; transform: scale(1); } 80%, 100% { opacity: 0; transform: scale(2.6); } }
+      @keyframes blink { 0%, 44%, 50%, 100% { transform: scaleY(1); } 47% { transform: scaleY(0.08); } }
+      @keyframes rise { 0% { opacity: 0; transform: translateY(12px); } 20%, 70% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; transform: translateY(-16px); } }
+      @media (prefers-reduced-motion: reduce) { * { animation: none !important; } }
+      text { font-family: Nunito, "Segoe UI", Helvetica, Arial, sans-serif; }
+    </style>
+  </defs>
+  <g clip-path="url(#card)">
+    <rect width="1280" height="340" fill="url(#bg)"/>
+    <rect width="1280" height="340" fill="url(#glow)"/>
+    <circle class="float" cx="1130" cy="250" r="90" fill="#ffffff" opacity="0.06"/>
+    <circle class="float b" cx="980" cy="40" r="60" fill="#ffffff" opacity="0.07"/>
+    <circle class="float c" cx="620" cy="320" r="120" fill="#bf94ff" opacity="0.10"/>
+
+    <!-- logo: the watching eye -->
+    <g transform="translate(96 96)">
+      <rect width="148" height="148" rx="44" fill="#9146ff"/>
+      <rect width="148" height="148" rx="44" fill="#ffffff" opacity="0.08"/>
+      <g class="blink">
+        <path d="M22 74s22-38 52-38 52 38 52 38-22 38-52 38-52-38-52-38Z" fill="none" stroke="#fff" stroke-width="9" stroke-linejoin="round"/>
+        <circle cx="74" cy="74" r="16" fill="#fff"/>
+      </g>
+    </g>
+
+    <text x="290" y="160" fill="#ffffff" font-size="84" font-weight="900" letter-spacing="-2">twitch<tspan font-weight="500" opacity="0.85">lurker</tspan></text>
+    <text x="294" y="212" fill="#e8dcff" font-size="28" font-weight="700">Lurkt rund um die Uhr. Nimmt alles mit.</text>
+    <text x="294" y="252" fill="#cdb8ff" font-size="21" font-weight="600">Kanalpunkte · Bonus-Truhen · Streaks · Raids · Drops · Raffles · selbst gehostet</text>
+
+    <!-- live chip -->
+    <g transform="translate(1030 70)">
+      <circle class="pulse" cx="28" cy="18" r="7" fill="#ff5a5a"/>
+      <rect width="118" height="36" rx="18" fill="#eb0400"/>
+      <circle cx="28" cy="18" r="7" fill="#fff"/>
+      <text x="46" y="25" fill="#fff" font-size="18" font-weight="900" letter-spacing="1">LIVE</text>
+    </g>
+    <g font-size="24" font-weight="900" fill="#4fe0a8">
+      <text class="points" x="1060" y="160">+50</text>
+      <text class="points b" x="1150" y="190">+450</text>
+    </g>
+  </g>
+</svg>

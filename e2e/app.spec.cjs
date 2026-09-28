@@ -7,11 +7,12 @@ async function go(page, id) {
 async function login(page) {
   // Keep e2e offline: preview images instead of live Twitch players.
   await page.addInitScript(() => localStorage.setItem('video', '0'));
-  await page.goto('/login');
-  await page.fill('input[name=username]', 'dev');
-  await page.fill('input[name=password]', 'e2e-pass');
-  await page.click('button[type=submit]');
-  await page.waitForURL('**/');
+  await page.goto('/');
+  await page.waitForURL('**/login.html');
+  await page.fill('#username', 'dev');
+  await page.fill('#password', 'e2e-password-123');
+  await page.click('#login-form button[type=submit]');
+  await page.waitForURL(url => !url.pathname.includes('login'));
 }
 
 for (const scheme of ['dark', 'light']) {
@@ -75,6 +76,15 @@ for (const scheme of ['dark', 'light']) {
     });
   }
 }
+
+test('wrong password shows an error', async ({ page }) => {
+  await page.goto('/login.html');
+  await page.fill('#username', 'dev');
+  await page.fill('#password', 'definitely-wrong');
+  await page.click('#login-form button[type=submit]');
+  await expect(page.locator('#login-error')).toBeVisible();
+  await page.screenshot({ path: 'shots/login.png' });
+});
 
 test('actions: add channel, invalid settings, raffle toggle, stop/start', async ({ page }) => {
   await login(page);

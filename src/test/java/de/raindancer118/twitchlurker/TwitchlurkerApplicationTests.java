@@ -36,6 +36,14 @@ class TwitchlurkerApplicationTests {
     static void props(DynamicPropertyRegistry registry) {
         registry.add("lurker.data-dir", () -> dataDir.toString());
         registry.add("lurker.allowed-emails", () -> "tom@example.org");
+        registry.add("lurker.auth.mode", () -> "oidc");
+        registry.add("lurker.oidc.client-id", () -> "lurker");
+        registry.add("lurker.oidc.client-secret", () -> "secret");
+        registry.add("lurker.oidc.issuer-uri", () -> "https://idp.example.org/application/o/lurker/");
+        registry.add("lurker.oidc.authorization-uri", () -> "https://idp.example.org/authorize");
+        registry.add("lurker.oidc.token-uri", () -> "https://idp.example.org/token");
+        registry.add("lurker.oidc.user-info-uri", () -> "https://idp.example.org/userinfo");
+        registry.add("lurker.oidc.jwk-set-uri", () -> "https://idp.example.org/jwks");
     }
 
     @Autowired
@@ -105,12 +113,14 @@ class TwitchlurkerApplicationTests {
     }
 
     @Test
-    void pagesRedirectToAuthentikAndApiAnswers401() throws Exception {
+    void pagesRedirectToOidcLoginAndApiAnswers401() throws Exception {
         mvc.perform(get("/")).andExpect(status().is3xxRedirection())
-                .andExpect(redirectedUrl("/oauth2/authorization/authentik"));
+                .andExpect(redirectedUrl("/oauth2/authorization/oidc"));
         mvc.perform(get("/api/overview")).andExpect(status().isUnauthorized());
-        mvc.perform(get("/oauth2/authorization/authentik")).andExpect(status().is3xxRedirection())
-                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("https://portal.tstieh.de/application/o/authorize/")));
+        mvc.perform(get("/oauth2/authorization/oidc")).andExpect(status().is3xxRedirection())
+                .andExpect(header().string("Location", org.hamcrest.Matchers.startsWith("https://idp.example.org/authorize?")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("client_id=lurker")))
+                .andExpect(header().string("Location", org.hamcrest.Matchers.containsString("redirect_uri=http://localhost/login/oauth2/code/oidc")));
     }
 
     @Test

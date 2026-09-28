@@ -108,8 +108,10 @@ public class AppConfig {
     @Bean(destroyMethod = "shutdown")
     MinerSupervisor minerSupervisor(LurkerProperties props, SettingsStore settings, TwitchAuthService auth, TokenStore tokens,
                                     MinerMessageHandler handler, MinerState state, JsonMapper json) {
-        return new MinerSupervisor(props.dataDir(), props.pythonCommand(), props.runnerScript(), tokens.file(), settings,
+        var supervisor = new MinerSupervisor(props.dataDir(), props.pythonCommand(), props.runnerScript(), tokens.file(), settings,
                 auth::token, handler, state, json, Duration.ofSeconds(5));
+        supervisor.setCommunityDropsUrl(props.communityDropsUrl());
+        return supervisor;
     }
 
     @Bean(destroyMethod = "close")

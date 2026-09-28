@@ -30,14 +30,14 @@ class SecurityConfigTest {
 
     @Test
     void allowsVerifiedEmailOrGroup() {
-        assertThat(SecurityConfig.isAllowed(user("Tom@Example.org", true, null), List.of("tom@example.org"), List.of())).isTrue();
-        assertThat(SecurityConfig.isAllowed(user("x@y.z", true, List.of("lurkers")), List.of(), List.of("lurkers"))).isTrue();
+        assertThat(OidcSecurityConfig.isAllowed(user("Tom@Example.org", true, null), List.of("tom@example.org"), List.of())).isTrue();
+        assertThat(OidcSecurityConfig.isAllowed(user("x@y.z", true, List.of("lurkers")), List.of(), List.of("lurkers"))).isTrue();
     }
 
     @Test
     void deniesUnverifiedOtherOrEmptyAllowlists() {
-        assertThat(SecurityConfig.isAllowed(user("tom@example.org", false, null), List.of("tom@example.org"), List.of())).isFalse();
-        assertThat(SecurityConfig.isAllowed(user("other@example.org", true, List.of("users")), List.of("tom@example.org"), List.of("lurkers"))).isFalse();
-        assertThat(SecurityConfig.isAllowed(user("tom@example.org", true, List.of("lurkers")), List.of(), List.of())).isFalse();
+        assertThat(OidcSecurityConfig.isAllowed(user("tom@example.org", false, null), List.of("tom@example.org"), List.of())).isFalse();
+        assertThat(OidcSecurityConfig.isAllowed(user("other@example.org", true, List.of("users")), List.of("tom@example.org"), List.of("lurkers"))).isFalse();
+        assertThat(OidcSecurityConfig.isAllowed(user("tom@example.org", true, List.of("lurkers")), List.of(), List.of())).isFalse();
     }
 }

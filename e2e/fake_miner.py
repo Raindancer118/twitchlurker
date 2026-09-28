@@ -26,7 +26,7 @@ def catalogue():
          "startAt": "2026-09-20T00:00:00Z", "endAt": "2026-10-02T18:00:00Z", "linked": True, "linkUrl": None, "channels": [],
          "rewards": [{"name": "Hazmat Suit", "image": None, "minutes": 120}, {"name": "Garage Door Skin", "image": None, "minutes": 60}]},
         {"id": "val1", "name": "VCT Champions", "game": "VALORANT", "gameId": "516575", "image": None, "status": "UPCOMING",
-         "startAt": "2026-10-10T00:00:00Z", "endAt": "2026-10-20T00:00:00Z", "linked": False, "linkUrl": None, "channels": [],
+         "startAt": "2026-10-10T00:00:00Z", "endAt": "2026-10-20T00:00:00Z", "linked": None, "linkUrl": None, "channels": [],
          "rewards": [{"name": "Gun Buddy", "image": None, "minutes": 240}]},
     ]
     for c in items:

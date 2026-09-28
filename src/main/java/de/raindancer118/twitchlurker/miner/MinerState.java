@@ -26,7 +26,7 @@ public class MinerState {
     public record Reward(String name, String image, int minutes) {}
 
     public record CatalogueCampaign(String id, String name, String game, String gameId, String image, String status,
-                                    String startAt, String endAt, boolean linked, String linkUrl, List<String> channels,
+                                    String startAt, String endAt, Boolean linked, String linkUrl, List<String> channels,
                                     List<Reward> rewards, boolean watched) {}
 
     /** access: "ok" (Android token works), "missing" (no drops login yet), "rejected" (token no longer accepted). */

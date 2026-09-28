@@ -9,5 +9,5 @@ JSON
 python3 twitch_mock.py &
 MOCK=$!
 trap 'kill $MOCK 2>/dev/null' EXIT
-PORT=18080 COOKIE_SECURE=false LURKER_DATA_DIR="$DATA" LURKER_PYTHON=python3 LURKER_RUNNER="$PWD/fake_miner.py" \
-  LURKER_DEV_PASSWORD=e2e-pass java -jar "$(ls -t ../target/twitchlurker-*.jar | grep -v original | head -1)" --spring.profiles.active=dev --lurker.twitch-id-base=http://127.0.0.1:18099
+PORT=18080 COOKIE_SECURE=false LURKER_DATA_DIR="$DATA" LURKER_PYTHON=python3 LURKER_RUNNER="$PWD/${TL_FAKE_RUNNER:-fake_miner.py}" \
+  LURKER_AUTH_MODE=password LURKER_USERNAME=dev LURKER_PASSWORD=e2e-password-123 java -jar "$(ls -t ../target/twitchlurker-*.jar | grep -v original | head -1)" --lurker.twitch-id-base=http://127.0.0.1:18099

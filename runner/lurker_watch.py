@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: GPL-3.0-or-later
+# Derived from Twitch-Channel-Points-Miner-v2 (https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2), GPL-3.0-or-later.
 """Replacement for Twitch.send_minute_watched_events (TCPM 2.0.7).
 
 Identical sending logic, but the channel choice goes through lurker_core.choose_watching so the

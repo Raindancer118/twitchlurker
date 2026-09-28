@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-FROM maven:3.9-eclipse-temurin-25 AS build
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-25 AS build
 WORKDIR /src
 COPY pom.xml .
 RUN --mount=type=cache,target=/root/.m2 mvn -B -q dependency:go-offline

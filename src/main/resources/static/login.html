@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="color-scheme" content="light dark">
+<title>Anmelden · twitchlurker</title><link rel="icon" href="icon.svg" type="image/svg+xml"><link rel="stylesheet" href="styles.css"><link rel="stylesheet" href="motion.css"><script src="login.js" defer></script></head>
+<body class="standalone">
+<main class="standalone-main login-main">
+<span class="brand-mark login-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></span>
+<p class="eyebrow">twitchlurker</p>
+<h1>Schön, dass du da bist.</h1>
+<form class="panel login-card" id="login-form" method="post" action="/login">
+<label for="username">Benutzername</label><input id="username" name="username" autocomplete="username" required>
+<label for="password">Passwort</label><input id="password" name="password" type="password" autocomplete="current-password" required>
+<p class="feedback error" id="login-error" role="alert" hidden>Das hat nicht gepasst. Versuch’s nochmal.</p>
+<button class="primary" type="submit">Anmelden</button>
+</form>
+</main>
+</body></html>

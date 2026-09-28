@@ -34,7 +34,9 @@ class MinerMessageHandlerTest {
         snapshots = new SnapshotRepository(jdbc);
         state = new MinerState();
         var clock = Clock.fixed(Instant.parse("2026-09-28T12:00:00Z"), ZoneOffset.UTC);
-        handler = new MinerMessageHandler(JsonMapper.builder().build(), state, new EventService(events, new LiveBus(), clock),
+        // Same strictness as the JsonMapper Spring Boot builds (FAIL_ON_NULL_FOR_PRIMITIVES), which the default builder lacks.
+        var json = JsonMapper.builder().enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES).build();
+        handler = new MinerMessageHandler(json, state, new EventService(events, new LiveBus(), clock),
                 snapshots, new LiveBus(), clock);
     }
 
@@ -83,6 +85,16 @@ class MinerMessageHandlerTest {
                 + "\"image\":null,\"status\":\"ACTIVE\",\"startAt\":\"2026-09-27T00:00:00Z\",\"endAt\":\"2026-10-05T00:00:00Z\",\"linked\":false,"
                 + "\"linkUrl\":\"https://link\",\"channels\":[\"gronkh\"],\"rewards\":[{\"name\":\"Cape\",\"image\":null,\"minutes\":60}],\"watched\":true}],\"access\":\"missing\"}");
         var catalogue = state.catalogue().orElseThrow();
+        // Community campaigns have no link status unless they are in the user's inventory: linked is null then.
+        handler.handleStdout("{\"t\":\"campaigns\",\"access\":\"community\",\"campaigns\":[{\"id\":\"x\",\"name\":\"X\",\"game\":\"G\","
+                + "\"gameId\":\"1\",\"image\":null,\"status\":\"ACTIVE\",\"startAt\":null,\"endAt\":null,\"linked\":null,\"linkUrl\":null,"
+                + "\"channels\":[],\"rewards\":[],\"watched\":false}]}");
+        assertThat(state.catalogue().orElseThrow().campaigns()).singleElement()
+                .satisfies(c -> assertThat(c.linked()).isNull());
+        handler.handleStdout("{\"t\":\"campaigns\",\"campaigns\":[{\"id\":\"mc1\",\"name\":\"Minecraft Live\",\"game\":\"Minecraft\",\"gameId\":\"27471\","
+                + "\"image\":null,\"status\":\"ACTIVE\",\"startAt\":\"2026-09-27T00:00:00Z\",\"endAt\":\"2026-10-05T00:00:00Z\",\"linked\":false,"
+                + "\"linkUrl\":\"https://link\",\"channels\":[\"gronkh\"],\"rewards\":[{\"name\":\"Cape\",\"image\":null,\"minutes\":60}],\"watched\":true}],\"access\":\"missing\"}");
+        catalogue = state.catalogue().orElseThrow();
         assertThat(catalogue.campaigns()).hasSize(1);
         assertThat(catalogue.campaigns().getFirst().rewards().getFirst().minutes()).isEqualTo(60);
         assertThat(catalogue.campaigns().getFirst().watched()).isTrue();

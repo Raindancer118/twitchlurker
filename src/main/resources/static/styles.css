@@ -403,3 +403,9 @@ dialog h2{font-weight:900;font-size:1.9rem}
 }
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation:none!important;transition:none!important;scroll-behavior:auto!important}}
 #settings-form .settings-grid{padding-bottom:12px}#settings-form{padding-bottom:4px}
+.login-main{margin-top:14vh}
+.login-mark{width:52px;height:52px;border-radius:18px}
+.login-mark svg{width:28px;height:28px}
+.login-card{width:min(420px,100%);display:grid;gap:4px}
+.login-card button{margin-top:16px;width:100%}
+.login-card .feedback{margin:12px 0 0}

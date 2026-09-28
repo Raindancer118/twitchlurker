@@ -100,7 +100,7 @@ async function api(path, { method = 'GET', body } = {}) {
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
   if (res.status === 401) {
-    location.href = '/oauth2/authorization/authentik';
+    location.href = '/';
     throw new Error('Nicht angemeldet');
   }
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;

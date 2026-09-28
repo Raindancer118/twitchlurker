@@ -12,11 +12,12 @@ final class WebSecurityDefaults {
 
     private WebSecurityDefaults() {}
 
-    static void apply(HttpSecurity http) throws Exception {
+    static void apply(HttpSecurity http, String... publicPages) throws Exception {
         http.authorizeHttpRequests(a -> a
-                        .requestMatchers("/actuator/health/**", "/actuator/health", "/denied.html", "/bye.html",
+                        .requestMatchers("/actuator/health/**", "/actuator/health", "/bye.html",
                                 "/fonts/**", "/icon.svg", "/favicon.ico", "/error",
                                 "/styles.css", "/motion.css").permitAll()
+                        .requestMatchers(publicPages).permitAll()
                         .anyRequest().authenticated())
                 .csrf(c -> c.spa())
                 .logout(l -> l.logoutUrl("/logout").logoutSuccessUrl("/bye.html"))

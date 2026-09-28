@@ -51,6 +51,7 @@ public class MinerSupervisor {
     private final MinerState state;
     private final JsonMapper json;
     private final Duration baseBackoff;
+    private String communityDropsUrl;
     private final ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor(
             Thread.ofPlatform().name("miner-supervisor").daemon().factory());
 
@@ -77,6 +78,10 @@ public class MinerSupervisor {
         this.state = state;
         this.json = json;
         this.baseBackoff = baseBackoff;
+    }
+
+    public void setCommunityDropsUrl(String url) {
+        this.communityDropsUrl = url;
     }
 
     public synchronized Status status() {
@@ -317,6 +322,9 @@ public class MinerSupervisor {
         var cfg = new LinkedHashMap<String, Object>();
         cfg.put("workDir", workDir.toAbsolutePath().toString());
         cfg.put("tokenFile", tokenFile.toAbsolutePath().toString());
+        if (communityDropsUrl != null && !communityDropsUrl.isBlank()) {
+            cfg.put("communityDropsUrl", communityDropsUrl);
+        }
         cfg.put("followers", s.followers());
         cfg.put("streamers", s.streamers());
         cfg.put("blacklist", s.blacklist());
