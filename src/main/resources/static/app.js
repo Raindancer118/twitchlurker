@@ -7,7 +7,7 @@ const fmt = n => nf.format(Math.round(n || 0));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const time = iso => iso ? new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
 const dateTime = iso => iso ? new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr' : '–';
-const SCREENS = { overview: 'Übersicht', channels: 'Kanäle', drops: 'Drops', raffles: 'Raffles', bot: 'Bot / Login', settings: 'Einstellungen' };
+const SCREENS = { overview: 'Übersicht', channels: 'Kanäle', drops: 'Drops', raffles: 'Raffles', bot: 'Bot & Login', settings: 'Einstellungen' };
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const bootTime = performance.now();
@@ -27,7 +27,7 @@ function enter(id) {
   if (pendingEnter !== id) return;
   pendingEnter = null;
   const section = document.getElementById(id);
-  for (const group of ['.page-heading>div', '.stats-strip>div', '.stream-card', '.feed li', '.channel-row', '.campaign', '.inventory-item', '.raffle-entry', '.bot-grid>.panel', '.settings-grid>.panel', '.raffle-layout .stack>.panel']) {
+  for (const group of ['.page-heading>div', '.stats-strip>div', '.slot', '.feed li', '.channel-row', '.campaign', '.inventory-item', '.raffle-entry', '.bot-grid>.panel', '.settings-grid>.panel', '.raffle-layout .stack>.panel']) {
     stagger(section, group);
   }
   section.classList.remove('is-entering');
@@ -63,28 +63,10 @@ function animateNumber(el, value, { bump = false, prefix = '' } = {}) {
 }
 
 function moveNavIndicator() {
-  const nav = $('nav');
   const active = $('nav a[aria-current]');
-  let ind = $('.nav-indicator', nav);
-  if (!ind) {
-    ind = document.createElement('span');
-    ind.className = 'nav-indicator';
-    ind.setAttribute('aria-hidden', 'true');
-    nav.prepend(ind);
-    nav.classList.add('has-indicator');
+  if (active && $('nav').scrollWidth > $('nav').clientWidth) {
+    active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reducedMotion.matches ? 'auto' : 'smooth' });
   }
-  if (!active) return;
-  const first = !ind.dataset.placed;
-  if (first) ind.style.transition = 'none';
-  ind.style.width = active.offsetWidth + 'px';
-  ind.style.height = active.offsetHeight + 'px';
-  ind.style.transform = `translate(${active.offsetLeft}px, ${active.offsetTop}px)`;
-  if (first) {
-    ind.dataset.placed = '1';
-    void ind.offsetWidth;
-    ind.style.transition = '';
-  }
-  if (nav.scrollWidth > nav.clientWidth) active.scrollIntoView({ block: 'nearest', inline: 'center', behavior: reducedMotion.matches ? 'auto' : 'smooth' });
 }
 
 const state = { overview: null, channels: [], drops: null, raffles: null, bot: null, twitch: null, settings: null, logs: [] };
@@ -203,10 +185,18 @@ function renderBanner(twitch) {
   banner.hidden = false;
 }
 
-function artClass(game) {
-  let h = 0;
-  for (const ch of String(game || '')) h = (h * 31 + ch.codePointAt(0)) >>> 0;
-  return { symbol: h % 2 ? 'sea' : 'forest', variant: `art-${(h >> 1) % 4}` };
+function previewUrl(login) {
+  // Twitch refreshes live thumbnails every few minutes; the minute bucket busts the browser cache.
+  return `https://static-cdn.jtvnw.net/previews-ttv/live_user_${encodeURIComponent(login)}-640x360.jpg?t=${Math.floor(Date.now() / 300000)}`;
+}
+
+function playerUrl(login) {
+  return `https://player.twitch.tv/?channel=${encodeURIComponent(login)}&parent=${encodeURIComponent(location.hostname)}&muted=true&autoplay=true`;
+}
+
+function videoWanted() {
+  const saved = localStorage.getItem('video');
+  return saved === null ? !matchMedia('(max-width: 900px)').matches : saved === '1';
 }
 
 function initial(name) {
@@ -240,19 +230,101 @@ function feedItem(e) {
   return `<li><span class="event-symbol" aria-hidden="true">${sym}</span><div><strong>${title}</strong><p>${sub}</p></div><time datetime="${esc(e.ts)}">${time(e.ts)}</time></li>`;
 }
 
-function streamCard(s) {
-  const art = artClass(s.game);
-  const tag = s.streakPending ? 'Streak sichern' : s.dropsEligible ? 'Drops aktiv' : s.source === 'drops' ? 'Drop-Suche' : 'Wird gelurkt';
-  const gained = state.channels.find(c => c.login === s.login)?.gainedToday;
-  return `<article class="stream-card"><div class="stream-art ${art.variant}"><svg class="landscape" aria-hidden="true"><use href="#${art.symbol}"/></svg><div class="art-top"><span class="live-tag">LIVE</span><span class="watch-tag">${tag}</span></div><span class="game-title">${esc(s.game || 'Live')}</span><span class="art-caption">${esc(fmt(s.viewers))} ZUSCHAUER</span></div>
-<div class="stream-body"><div class="stream-identity"><span class="avatar">${initial(s.login)}</span><div><h3>${esc(s.login)}</h3><p>${esc(s.title || '')}</p></div><button class="icon-button" data-channel="${esc(s.login)}" aria-label="${esc(s.login)} öffnen"><svg><use href="#i-arrow"/></svg></button></div>
-<div class="stream-meta"><span>${esc(s.game || '–')}</span><span>${fmt(s.viewers)} Zuschauer</span><span>${fmt(s.minutesWatched)} Min. gelurkt</span></div>
-<div class="stream-bottom"><span><span class="status-dot"></span> <span class="watch-status">Wird gelurkt</span></span><strong>${gained != null ? '+' + fmt(gained) : fmt(s.points)} <small>${gained != null ? 'Punkte heute' : 'Punkte'}</small></strong></div></div></article>`;
+// Slots keep their DOM between refreshes so a running player is never reloaded.
+const slotEls = [];
+const playing = new Set();
+
+function slotShell(index) {
+  const el = document.createElement('article');
+  el.className = 'panel slot';
+  el.innerHTML = `<div class="slot-head"><p class="eyebrow"><svg class="pin-icon" hidden><use href="#i-pin"/></svg><span class="slot-label"></span></p><label class="visually-hidden" for="slot-select-${index}">Platz ${index + 1} zuweisen</label><select id="slot-select-${index}" data-slot="${index}"></select></div>
+<div class="slot-media"></div>
+<div class="slot-body"><div class="slot-identity"><span class="avatar"></span><div><h3></h3><p></p></div><button class="icon-button" type="button" aria-label="Kanal öffnen"><svg><use href="#i-arrow"/></svg></button></div><div class="slot-meta"></div><p class="slot-note" hidden></p><div class="slot-foot"><span class="meta slot-tags"></span><strong></strong></div></div>`;
+  el.querySelector('select').addEventListener('change', ev => assignSlot(index, ev.target.value || null));
+  return el;
 }
 
-function placeholderCard(text) {
-  return `<article class="stream-card placeholder"><div class="stream-art art-0"><svg class="landscape" aria-hidden="true"><use href="#forest"/></svg><span class="game-title">Freier Platz</span></div><div class="stream-body"><div class="stream-identity"><div><h3>Gerade niemand</h3><p>${esc(text)}</p></div></div></div></article>`;
+function renderSlotMedia(media, login) {
+  if (media.dataset.login === (login || '') && media.dataset.mode === (login && (videoWanted() || playing.has(login)) ? 'video' : 'image')) return;
+  media.dataset.login = login || '';
+  if (!login) {
+    media.dataset.mode = 'none';
+    media.innerHTML = '<p class="slot-empty-media">Frei. Sobald jemand live ist, lurkt der Bot hier.</p>';
+    return;
+  }
+  const video = videoWanted() || playing.has(login);
+  media.dataset.mode = video ? 'video' : 'image';
+  if (video) {
+    media.innerHTML = `<span class="live-tag">LIVE</span><iframe src="${esc(playerUrl(login))}" title="Stream von ${esc(login)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
+  } else {
+    media.innerHTML = `<span class="live-tag">LIVE</span><img src="${esc(previewUrl(login))}" alt="" loading="lazy" referrerpolicy="no-referrer"><button class="play" type="button"><svg><use href="#i-play"/></svg>Stream ansehen</button>`;
+    media.querySelector('.play').addEventListener('click', () => {
+      playing.add(login);
+      renderSlotMedia(media, login);
+    });
+  }
 }
+
+function renderSlots() {
+  const o = state.overview;
+  const box = $('#slots');
+  const channels = state.channels.filter(c => c.source !== 'drops' || c.slot);
+  for (let i = 0; i < 2; i++) {
+    if (!slotEls[i]) {
+      slotEls[i] = slotShell(i);
+      box.append(slotEls[i]);
+    }
+    const el = slotEls[i];
+    const slot = o.slots[i];
+    const s = slot.streamer;
+    el.querySelector('.slot-label').textContent = `Platz ${i + 1} · ${slot.pinned ? 'fest' : 'automatisch'}`;
+    el.querySelector('.pin-icon').hidden = !slot.pinned;
+    const select = el.querySelector('select');
+    if (document.activeElement !== select) {
+      const options = ['<option value="">Automatisch</option>', ...channels.map(c => `<option value="${esc(c.login)}">${esc(c.login)}${c.online ? ' · live' : ''}</option>`)];
+      if (slot.pinned && !channels.some(c => c.login === slot.pinned)) options.push(`<option value="${esc(slot.pinned)}">${esc(slot.pinned)}</option>`);
+      const html = options.join('');
+      if (select.dataset.html !== html) {
+        select.innerHTML = html;
+        select.dataset.html = html;
+      }
+      select.value = slot.pinned || '';
+    }
+    renderSlotMedia(el.querySelector('.slot-media'), s?.login);
+    el.querySelector('.avatar').textContent = s ? s.login.charAt(0).toUpperCase() : '·';
+    el.querySelector('h3').textContent = s ? s.login : 'Gerade niemand';
+    el.querySelector('.slot-identity p').textContent = s ? (s.title || '') : (o.bot.status !== 'RUNNING' ? 'Der Bot läuft gerade nicht.' : 'Keiner deiner Kanäle ist live.');
+    const open = el.querySelector('.slot-identity .icon-button');
+    open.hidden = !s;
+    if (s) open.dataset.channel = s.login;
+    el.querySelector('.slot-meta').innerHTML = s ? `<span>${esc(s.game || '–')}</span><span>${fmt(s.viewers)} Zuschauer</span><span>${fmt(s.minutesWatched)} Min. gelurkt</span>` : '';
+    const note = el.querySelector('.slot-note');
+    note.hidden = !(slot.pinned && !slot.pinnedOnline);
+    note.textContent = slot.pinned && !slot.pinnedOnline ? `${slot.pinned} ist offline. Der Platz läuft solange automatisch.` : '';
+    el.querySelector('.slot-tags').innerHTML = s ? [s.streakPending ? '<span class="tag hot">Streak</span>' : '', s.dropsEligible ? '<span class="tag hot">Drops</span>' : '', s.source === 'drops' ? '<span class="tag">Drop-Suche</span>' : ''].join(' ') : '';
+    const gained = s ? state.channels.find(c => c.login === s.login)?.gainedToday : null;
+    const strong = el.querySelector('.slot-foot strong');
+    if (s) animateNumber(strong, gained ?? 0, { bump: true, prefix: '+' });
+    else {
+      strong.textContent = '';
+      delete strong.dataset.value;
+    }
+  }
+}
+
+async function assignSlot(index, login) {
+  const slots = [...state.overview.slots.map(s => s.pinned)];
+  slots[index] = login;
+  try {
+    await api('/api/slots', { method: 'PUT', body: { slots } });
+    state.settings = null;
+    toast(login ? `Platz ${index + 1} gehört jetzt ${login}.` : `Platz ${index + 1} läuft wieder automatisch.`);
+    setTimeout(() => loadOverview().catch(() => {}), 800);
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
 
 function nextDrop(drops) {
   let best = null;
@@ -269,12 +341,13 @@ function nextDrop(drops) {
 function renderNextDrop() {
   const box = $('#next-drop');
   const best = nextDrop(state.drops);
+  const icon = '<span class="drop-icon"><svg><use href="#i-chest"/></svg></span>';
   if (!best) {
-    box.innerHTML = `<div class="eyebrow">DEIN NÄCHSTER DROP</div><svg class="chest-art" aria-hidden="true"><use href="#chest"/></svg><h2>Gerade keine<br>Kampagne offen.</h2><p class="muted">Sobald Twitch Drops für deine Spiele verteilt, taucht der Fortschritt hier auf.</p><a class="text-link" href="#drops">Zu deinen Drops <svg><use href="#i-arrow"/></svg></a>`;
+    box.innerHTML = `${icon}<p class="eyebrow">Nächster Drop</p><h2>Gerade keine Kampagne offen.</h2><p class="meta">Sobald Twitch Drops für deine Spiele verteilt, taucht der Fortschritt hier auf.</p><a class="text-link" href="#drops">Zu den Drops <svg><use href="#i-arrow"/></svg></a>`;
     return;
   }
   const pct = Math.round(best.pct * 100);
-  box.innerHTML = `<div class="eyebrow">DEIN NÄCHSTER DROP</div><svg class="chest-art" aria-hidden="true"><use href="#chest"/></svg><p class="game-label">${esc((best.c.game || '').toUpperCase())}</p><h2>Ein bisschen näher<br>am nächsten Schatz.</h2><div class="progress-label"><span>${esc(best.d.name)}</span><strong>${pct} %</strong></div><progress value="${pct}" max="100" aria-label="${esc(best.d.name)}, ${pct} Prozent"></progress><p class="muted">Noch ${fmt(best.d.required - best.d.watched)} von ${fmt(best.d.required)} Minuten Watch-Time.</p><a class="text-link" href="#drops">Zu deinen Drops <svg><use href="#i-arrow"/></svg></a>`;
+  box.innerHTML = `${icon}<p class="eyebrow">Nächster Drop · ${esc(best.c.game || '')}</p><h2>${esc(best.d.name)}</h2><div class="progress-label"><span>${fmt(best.d.watched)} von ${fmt(best.d.required)} Minuten</span><strong>${pct} %</strong></div><progress value="${pct}" max="100" aria-label="${esc(best.d.name)}, ${pct} Prozent"></progress><p class="meta">Noch ${fmt(best.d.required - best.d.watched)} Minuten Watch-Time.</p><a class="text-link" href="#drops">Zu den Drops <svg><use href="#i-arrow"/></svg></a>`;
 }
 
 async function loadOverview() {
@@ -292,27 +365,20 @@ function renderOverview() {
   $('#empty-state').hidden = !neverConnected;
   $('#overview-content').hidden = neverConnected;
 
-  $('#today-label').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase();
-  const hour = new Date().getHours();
-  const dayPart = hour < 11 ? 'Morgen' : hour < 17 ? 'Tag' : 'Abend';
+  $('#today-label').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
   $('#overview-sub').textContent = o.bot.status === 'RUNNING'
-    ? `Ein guter ${dayPart}, um nicht überall dabei zu sein. ${o.online} von ${o.tracked} Kanälen sind live.`
-    : 'Der Bot macht gerade Pause. Unter „Bot / Login“ geht’s weiter.';
-  $('#session-state').innerHTML = `${esc(BOT_TEXT[o.bot.status]?.[0] || '')}<small>${o.bot.user ? 'als ' + esc(o.bot.user) : ''}</small>`;
+    ? `${o.online} von ${o.tracked} Kanälen sind live. Der Bot lurkt in zweien davon.`
+    : 'Der Bot macht gerade Pause. Unter „Bot & Login“ geht’s weiter.';
+  $('#session-state').textContent = `${BOT_TEXT[o.bot.status]?.[0] || ''}${o.bot.user ? ' als ' + o.bot.user : ''}`;
 
   setPhase();
   animateNumber($('#stat-today'), o.stats.pointsToday, { bump: true });
   animateNumber($('#stat-week'), o.stats.pointsWeek);
   animateNumber($('#stat-total'), o.stats.pointsTotal);
-  $('#stat-drops').textContent = `${fmt(o.stats.dropsTotal)} Drops`;
-  $('#stat-extra-sub').textContent = `${fmt(o.stats.rafflesToday)} Raffles heute · ${fmt(o.stats.bonusesToday)} Truhen`;
+  animateNumber($('#stat-drops'), o.stats.dropsTotal);
+  animateNumber($('#stat-raffles'), o.stats.rafflesToday);
 
-  $('#slot-count').textContent = `${o.watching.length} / 2`;
-  const cards = o.watching.map(streamCard);
-  const why = o.bot.status !== 'RUNNING' ? 'Der Bot läuft gerade nicht.' : o.online === 0 ? 'Keiner deiner Kanäle ist live.' : 'Der Bot wählt gleich aus.';
-  while (cards.length < 2) cards.push(placeholderCard(why));
-  $('#active-streams').innerHTML = cards.join('');
-
+  renderSlots();
   const feed = o.feed.filter(e => !FEED_HIDDEN(e)).slice(0, 12);
   $('#feed').innerHTML = feed.length ? feed.map(feedItem).join('') : '<li class="feed-empty">Noch ruhig hier. Die ersten Punkte kommen, sobald jemand live ist.</li>';
   $('#nav-channels').textContent = o.tracked || '';
@@ -328,19 +394,24 @@ function sparkline(values, w = 120, h = 34) {
   return values.map((v, i) => `${(i / (values.length - 1) * (w - 4) + 2).toFixed(1)},${(h - 3 - (v - min) / span * (h - 6)).toFixed(1)}`).join(' ');
 }
 
-function channelRow(c) {
-  const status = c.watching ? 'Wird gelurkt' : c.online ? `Live · ${c.game || ''}` : 'Offline';
+function channelRow(c, sortable) {
+  const status = c.watching ? 'wird gelurkt' : c.online ? `live · ${c.game || ''}` : 'offline';
   const tags = [
+    c.slot ? `<span class="tag hot">Platz ${c.slot}</span>` : '',
     c.streakPending ? '<span class="tag hot">Streak</span>' : '',
     c.dropsEligible ? '<span class="tag hot">Drops</span>' : '',
     c.source === 'drops' ? '<span class="tag">Drop-Suche</span>' : c.source === 'extra' ? '<span class="tag">Extra</span>' : '',
     c.raffles ? '' : '<span class="tag">Raffles aus</span>',
   ].join('');
   const spark = sparkline(c.spark);
-  return `<article class="channel-row" data-live="${c.online}"><div class="channel-name"><span class="avatar">${initial(c.login)}</span><div><strong>${esc(c.login)}</strong><small>${esc(status)}</small><small class="channel-tags">${tags}</small></div></div>
-<div class="value"><span class="mobile-label">Punktestand</span>${fmt(c.points)}</div><div class="gain"><span class="mobile-label">Heute</span>+${fmt(c.gainedToday)}</div>
-${spark ? `<svg class="sparkline" viewBox="0 0 120 34" role="img" aria-label="Punkteverlauf ${esc(c.login)}, 7 Tage"><polyline points="${spark}" pathLength="1"/></svg>` : '<span class="muted">Noch kein Verlauf</span>'}
-<span class="channel-priority">${c.watching ? 'Aktiv' : c.online ? 'Live' : '–'}</span><button class="icon-button channel-open" data-channel="${esc(c.login)}" aria-label="${esc(c.login)} öffnen"><svg><use href="#i-arrow"/></svg></button></article>`;
+  const order = sortable
+    ? `<button class="grip" type="button" aria-label="${esc(c.login)} verschieben" data-grip="${esc(c.login)}"><svg><use href="#i-grip"/></svg></button><span class="rank">${c.rank}</span><span class="move"><button type="button" data-move="-1" data-login="${esc(c.login)}" aria-label="${esc(c.login)} nach oben"><svg><use href="#i-up"/></svg></button><button type="button" data-move="1" data-login="${esc(c.login)}" aria-label="${esc(c.login)} nach unten"><svg><use href="#i-down"/></svg></button></span>`
+    : `<span class="rank">${c.rank}</span>`;
+  return `<li class="channel-row" data-login="${esc(c.login)}" data-live="${c.online}"><div class="order-cell">${order}</div>
+<div class="channel-name"><span class="avatar">${initial(c.login)}</span><div><strong>${esc(c.login)}</strong><small>${c.online ? '<span class="live-dot"></span>' : ''}${esc(status)} ${tags}</small></div></div>
+<div class="value"><span class="mobile-label">Punkte </span>${fmt(c.points)}</div><div class="gain"><span class="mobile-label">Heute </span>+${fmt(c.gainedToday)}</div>
+${spark ? `<svg class="sparkline" viewBox="0 0 120 34" role="img" aria-label="Punkteverlauf ${esc(c.login)}, 7 Tage"><polyline points="${spark}" pathLength="1"/></svg>` : '<span class="meta spark-empty">noch kein Verlauf</span>'}
+<button class="icon-button channel-open" data-channel="${esc(c.login)}" aria-label="${esc(c.login)} öffnen"><svg><use href="#i-arrow"/></svg></button></li>`;
 }
 
 async function loadChannels() {
@@ -350,22 +421,111 @@ async function loadChannels() {
   renderChannels();
 }
 
+let dragging = false;
+
 function renderChannels() {
+  if (dragging) {
+    renderChannels.pending = true;
+    return;
+  }
   const q = $('#channel-search').value.trim().toLowerCase();
   const filter = $('#channel-filter').value;
+  const sortable = !q && filter === 'all';
   const list = state.channels.filter(c => (!q || c.login.includes(q)) && (filter === 'all' || (filter === 'live') === c.online));
   const before = renderChannels.points || {};
-  $('#channel-list').innerHTML = list.map(channelRow).join('');
+  const html = list.map(c => channelRow(c, sortable)).join('');
+  if (renderChannels.html !== html) {
+    $('#channel-list').innerHTML = html;
+    renderChannels.html = html;
+  }
   $$('#channel-list .channel-row').forEach((row, i) => {
     const c = list[i];
     if (before[c.login] !== undefined && before[c.login] !== c.points) row.classList.add('updated');
   });
   renderChannels.points = Object.fromEntries(state.channels.map(c => [c.login, c.points]));
-  enter('channels');
   $('#no-channels').hidden = list.length > 0;
+  $('#order-hint').textContent = sortable
+    ? 'Ziehen am Griff (oder die Pfeile) ändert die Reihenfolge. Sie entscheidet, wer einen automatischen Platz bekommt, nachdem Streaks und Drops versorgt sind.'
+    : 'Sortieren geht nur ohne Suche und Filter.';
   const online = state.channels.filter(c => c.online).length;
-  $('#channels-sub').textContent = `${state.channels.length} Kanäle, ${online} davon live. Zwei Plätze zum Punktesammeln.`;
+  $('#channels-sub').textContent = `${state.channels.length} Kanäle, ${online} davon live.`;
   if (state.settings) $('#priority-label').textContent = state.settings.priority.map(p => ({ STREAK: 'Streak', DROPS: 'Drops', ORDER: 'Reihenfolge', SUBSCRIBED: 'Abo-Bonus', POINTS_ASCENDING: 'wenigste Punkte', POINTS_DESCENDING: 'meiste Punkte' }[p] || p)).join(' → ');
+  enter('channels');
+}
+
+async function saveOrder(logins) {
+  const byLogin = Object.fromEntries(state.channels.map(c => [c.login, c]));
+  state.channels = logins.map((l, i) => ({ ...byLogin[l], rank: i + 1 }));
+  renderChannels();
+  try {
+    await api('/api/order', { method: 'PUT', body: { order: logins } });
+    state.settings = null;
+    toast('Reihenfolge gespeichert. Der Bot richtet sich sofort danach.');
+  } catch (e) {
+    toast(e.message, true);
+    loadChannels().catch(() => {});
+  }
+}
+
+function moveChannel(login, delta) {
+  const logins = state.channels.map(c => c.login);
+  const from = logins.indexOf(login);
+  const to = from + delta;
+  if (from < 0 || to < 0 || to >= logins.length) return;
+  logins.splice(to, 0, logins.splice(from, 1)[0]);
+  saveOrder(logins).then(() => $(`#channel-list [data-move="${delta}"][data-login="${CSS.escape(login)}"]`)?.focus());
+}
+
+// Pointer-based drag: works for mouse, pen and touch without the HTML5 DnD quirks.
+function wireDrag() {
+  const list = $('#channel-list');
+  let drag = null;
+  list.addEventListener('pointerdown', ev => {
+    const grip = ev.target.closest('[data-grip]');
+    if (!grip || ev.button > 0) return;
+    ev.preventDefault();
+    grip.setPointerCapture(ev.pointerId);
+    dragging = true;
+    drag = { login: grip.dataset.grip, row: grip.closest('.channel-row'), target: null, after: false };
+    drag.row.classList.add('dragging');
+  });
+  list.addEventListener('pointermove', ev => {
+    if (!drag) return;
+    const rows = $$('.channel-row', list).filter(r => r !== drag.row);
+    $$('.drop-before,.drop-after', list).forEach(r => r.classList.remove('drop-before', 'drop-after'));
+    let target = null, after = false;
+    for (const r of rows) {
+      const box = r.getBoundingClientRect();
+      if (ev.clientY < box.top + box.height / 2) { target = r; break; }
+      target = r;
+      after = true;
+    }
+    drag.target = target;
+    drag.after = after;
+    target?.classList.add(after ? 'drop-after' : 'drop-before');
+  });
+  const finish = () => {
+    if (!drag) return;
+    const { login, row, target, after } = drag;
+    drag = null;
+    dragging = false;
+    row.classList.remove('dragging');
+    $$('.drop-before,.drop-after', list).forEach(r => r.classList.remove('drop-before', 'drop-after'));
+    if (!target) {
+      if (renderChannels.pending) renderChannels();
+      renderChannels.pending = false;
+      return;
+    }
+    const logins = state.channels.map(c => c.login).filter(l => l !== login);
+    let idx = logins.indexOf(target.dataset.login);
+    if (after) idx++;
+    logins.splice(idx, 0, login);
+    if (logins.join() !== state.channels.map(c => c.login).join()) saveOrder(logins);
+    else if (renderChannels.pending) renderChannels();
+    renderChannels.pending = false;
+  };
+  list.addEventListener('pointerup', finish);
+  list.addEventListener('pointercancel', finish);
 }
 
 async function openChannel(login) {
@@ -423,20 +583,19 @@ function renderDrops() {
   $('#campaign-count').textContent = d.campaigns.length;
   $('#inventory-count').textContent = d.claimed.length;
   $('#campaigns').innerHTML = d.campaigns.length ? d.campaigns.map(c => {
-    const art = artClass(c.game);
     const ends = c.endsAt ? new Date(c.endsAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const drops = c.drops.map(dr => {
       const pct = dr.required ? Math.min(100, Math.round(dr.watched / dr.required * 100)) : 0;
-      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${dr.claimed ? '<span class="claimed">Geclaimt</span>' : pct + ' %'}</strong></div><progress value="${dr.claimed ? 100 : pct}" max="100" aria-label="${esc(dr.name)} Fortschritt"></progress><small class="muted">${fmt(dr.watched)} / ${fmt(dr.required)} Minuten</small></li>`;
+      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${dr.claimed ? '<span class="claimed">Geclaimt</span>' : pct + ' %'}</strong></div><progress value="${dr.claimed ? 100 : pct}" max="100" aria-label="${esc(dr.name)} Fortschritt"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} Minuten</small></li>`;
     }).join('');
-    return `<article class="campaign panel"><div class="campaign-art ${art.variant}"><svg class="landscape" aria-hidden="true"><use href="#${art.symbol}"/></svg><span class="art-caption">${esc((c.game || '').toUpperCase())}</span>${c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ''}</div>
-<div class="campaign-body"><div class="row-between"><span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account verknüpft' : 'Account nicht verknüpft'}</span><span class="muted">${ends ? 'Bis ' + esc(ends) : ''}</span></div><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
-  }).join('') : `<div class="account-empty panel"><h2>Gerade keine laufende Kampagne.</h2><p class="muted">Kampagnen erscheinen, sobald du bei einem Drop-Kanal Watch-Time sammelst.${d.updatedAt ? ' Zuletzt geprüft ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
+    const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
+    return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between"><span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account verknüpft' : 'Account nicht verknüpft'}</span><span class="meta">${ends ? 'bis ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
+  }).join('') : `<div class="panel"><h2>Gerade keine laufende Kampagne.</h2><p class="meta">Kampagnen erscheinen, sobald du bei einem Drop-Kanal Watch-Time sammelst.${d.updatedAt ? ' Zuletzt geprüft ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
 
-  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="64" height="64">` : '<svg aria-hidden="true"><use href="#chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small></article>`).join('') : '<p class="muted">Noch nichts im Inventar.</p>';
+  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small></article>`).join('') : '<p class="meta">Noch nichts im Inventar.</p>';
 
   const scouted = d.scouted || [];
-  $('#scouted').innerHTML = `<h2>Drop-Suche</h2><p class="muted">${d.scoutEnabled ? (scouted.length ? 'Diese Kanäle hat der Bot für laufende Kampagnen dazugeholt.' : 'Aktiv. Noch keine zusätzlichen Kanäle nötig.') : 'Ausgeschaltet. Nur deine eigenen Kanäle sammeln Drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
+  $('#scouted').innerHTML = `<h2>Drop-Suche</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'Diese Kanäle hat der Bot für laufende Kampagnen dazugeholt.' : 'Aktiv. Noch keine zusätzlichen Kanäle nötig.') : 'Ausgeschaltet. Nur deine eigenen Kanäle sammeln Drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
   $('#nav-drops').hidden = !d.campaigns.length;
   setPhase();
   enter('drops');
@@ -712,7 +871,20 @@ function wire() {
   $('#channel-search').addEventListener('input', renderChannels);
   $('#channel-filter').addEventListener('change', renderChannels);
   $('#log-filter').addEventListener('change', renderLogs);
+  const videoToggle = $('#video-toggle');
+  videoToggle.checked = videoWanted();
+  videoToggle.addEventListener('change', () => {
+    localStorage.setItem('video', videoToggle.checked ? '1' : '0');
+    playing.clear();
+    if (state.overview) renderSlots();
+  });
+  wireDrag();
   document.addEventListener('click', ev => {
+    const move = ev.target.closest('[data-move]');
+    if (move) {
+      moveChannel(move.dataset.login, Number(move.dataset.move));
+      return;
+    }
     const open = ev.target.closest('[data-channel]');
     if (open) openChannel(open.dataset.channel).catch(e => toast(e.message, true));
     const tw = ev.target.closest('[data-twitch]');

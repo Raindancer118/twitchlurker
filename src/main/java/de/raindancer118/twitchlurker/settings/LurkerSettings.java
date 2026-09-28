@@ -18,7 +18,9 @@ public record LurkerSettings(
         Boolean watchStreak,
         DropScout dropScout,
         Raffle raffle,
-        Boolean autostart) {
+        Boolean autostart,
+        List<String> order,
+        List<String> slots) {
 
     public static final Set<String> PRIORITIES = Set.of("STREAK", "DROPS", "ORDER", "SUBSCRIBED", "POINTS_ASCENDING", "POINTS_DESCENDING");
     static final Pattern LOGIN = Pattern.compile("[a-z0-9_]{3,25}");
@@ -58,10 +60,23 @@ public record LurkerSettings(
         dropScout = dropScout == null ? new DropScout(null, null, null) : dropScout;
         raffle = raffle == null ? new Raffle(null, null, null, null, null, null, null) : raffle;
         autostart = autostart == null || autostart;
+        order = normalize(order, List.of(), false);
+        slots = normalizeSlots(slots);
+    }
+
+    /** Exactly two entries; null means the slot is filled automatically. */
+    private static List<String> normalizeSlots(List<String> values) {
+        var out = new ArrayList<String>(2);
+        for (int i = 0; i < 2; i++) {
+            String v = values != null && i < values.size() ? values.get(i) : null;
+            v = v == null ? null : v.strip().toLowerCase(Locale.ROOT);
+            out.add(v == null || v.isEmpty() ? null : v);
+        }
+        return java.util.Collections.unmodifiableList(out);
     }
 
     public static LurkerSettings defaults() {
-        return new LurkerSettings(null, null, null, null, null, null, null, null, null, null);
+        return new LurkerSettings(null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private static List<String> normalize(List<String> values, List<String> fallback, boolean stripBang) {
@@ -90,6 +105,8 @@ public record LurkerSettings(
         checkLogins("Blacklist", blacklist, errors);
         checkLogins("Bots", raffle.bots(), errors);
         checkLogins("Raffle-Ausnahmen", raffle.disabledChannels(), errors);
+        checkLogins("Reihenfolge", order, errors);
+        checkLogins("Slots", slots.stream().filter(java.util.Objects::nonNull).toList(), errors);
         priority.stream().filter(p -> !PRIORITIES.contains(p)).forEach(p -> errors.add("Unbekannte Priorität: " + p));
         raffle.joinCommands().stream().filter(c -> !COMMAND.matcher(c).matches())
                 .forEach(c -> errors.add("Ungültiger Befehl: " + c));
@@ -117,19 +134,27 @@ public record LurkerSettings(
     }
 
     public LurkerSettings withStreamers(List<String> v) {
-        return new LurkerSettings(followers, v, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart);
+        return new LurkerSettings(followers, v, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots);
     }
 
     public LurkerSettings withBlacklist(List<String> v) {
-        return new LurkerSettings(followers, streamers, v, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart);
+        return new LurkerSettings(followers, streamers, v, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots);
     }
 
     public LurkerSettings withRaffle(Raffle v) {
-        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, v, autostart);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, v, autostart, order, slots);
     }
 
     public LurkerSettings withAutostart(boolean v) {
-        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, v);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, v, order, slots);
+    }
+
+    public LurkerSettings withOrder(List<String> v) {
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, v, slots);
+    }
+
+    public LurkerSettings withSlots(List<String> v) {
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, v);
     }
 
     /** True if a change requires restarting the miner process (raffle/autostart changes don't). */

@@ -146,3 +146,66 @@ def test_pick_directory_channels():
 def test_parse_point_gain():
     assert core.parse_point_gain("+12 → Streamer(username=papaplatte, channel_id=1, channel_points=2.1k) - Reason: WATCH.") == ("papaplatte", 12, "WATCH")
     assert core.parse_point_gain("irgendwas") is None
+
+
+from TwitchChannelPointsMiner.classes.Settings import Priority
+
+
+def _s(name, online=True, points=0, streak=False, drops=False, multiplier=0, online_at=0, minute_watched=0, offline_at=0):
+    stream = SimpleNamespace(watch_streak_missing=streak, minute_watched=minute_watched, campaigns_ids=["c"] if drops else [])
+    st = SimpleNamespace(username=name, is_online=online, channel_points=points, online_at=online_at, offline_at=offline_at,
+                         stream=stream, settings=SimpleNamespace(watch_streak=True, claim_drops=True), activeMultipliers=None)
+    st.drops_condition = lambda: st.settings.claim_drops and st.is_online and st.stream.campaigns_ids != []
+    st.viewer_has_points_multiplier = lambda: multiplier > 0
+    st.total_points_multiplier = lambda: multiplier
+    return st
+
+
+PRIO = [Priority.STREAK, Priority.DROPS, Priority.ORDER]
+
+
+def names(streamers, idx):
+    return [streamers[i].username for i in idx]
+
+
+def test_choose_watching_follows_tcpm_priorities():
+    ss = [_s("a"), _s("b", drops=True), _s("c", streak=True), _s("d", online=False)]
+    assert names(ss, core.choose_watching(ss, PRIO, [None, None], now=1000)) == ["c", "b"]
+    assert names(ss, core.choose_watching(ss, [Priority.ORDER], [None, None], now=1000)) == ["a", "b"]
+    assert names(ss, core.choose_watching(ss, [Priority.POINTS_DESCENDING], [None, None], now=1000)) == ["a", "b"]
+
+
+def test_choose_watching_pins_first_and_falls_back_when_offline():
+    ss = [_s("a"), _s("b", drops=True), _s("c", streak=True), _s("d", online=False)]
+    assert names(ss, core.choose_watching(ss, PRIO, ["a", None], now=1000)) == ["a", "c"]
+    assert names(ss, core.choose_watching(ss, PRIO, [None, "a"], now=1000)) == ["a", "c"]
+    assert names(ss, core.choose_watching(ss, PRIO, ["d", "a"], now=1000)) == ["a", "c"]
+    assert names(ss, core.choose_watching(ss, PRIO, ["a", "a"], now=1000)) == ["a", "c"]
+    assert names(ss, core.choose_watching(ss, PRIO, ["b", "a"], now=1000)) == ["b", "a"]
+
+
+def test_choose_watching_skips_streams_that_just_went_live_and_stale_streaks():
+    ss = [_s("fresh", online_at=990), _s("old", streak=True, minute_watched=9), _s("x")]
+    assert names(ss, core.choose_watching(ss, PRIO, [None, None], now=1000)) == ["old", "x"]
+    assert names(ss, core.choose_watching(ss, PRIO, ["fresh", None], now=1000)) == ["old", "x"]
+
+
+def test_choose_watching_subscribed_prefers_highest_multiplier():
+    ss = [_s("a"), _s("b", multiplier=1.2), _s("c", multiplier=2)]
+    assert names(ss, core.choose_watching(ss, [Priority.SUBSCRIBED, Priority.ORDER], [None, None], now=1000)) == ["c", "b"]
+
+
+def test_apply_order_is_stable_and_in_place():
+    ss = [_s("a"), _s("b"), _s("c"), _s("d")]
+    same = ss
+    core.apply_order(ss, ["c", "unknown", "a"])
+    assert same is ss
+    assert [s.username for s in ss] == ["c", "a", "b", "d"]
+    core.apply_order(ss, [])
+    assert [s.username for s in ss] == ["c", "a", "b", "d"]
+
+
+def test_normalize_slots():
+    assert core.normalize_slots(None) == [None, None]
+    assert core.normalize_slots(["Papaplatte", ""]) == ["papaplatte", None]
+    assert core.normalize_slots(["a_b", "c", "d"]) == ["a_b", "c"]

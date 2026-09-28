@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import de.raindancer118.twitchlurker.events.EventService;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -43,6 +44,52 @@ class TwitchlurkerApplicationTests {
     @Autowired
     EventService events;
 
+    @Autowired
+    de.raindancer118.twitchlurker.miner.MinerMessageHandler minerMessages;
+
+    @Autowired
+    de.raindancer118.twitchlurker.settings.SettingsStore settingsStore;
+
+    private static String streamer(String login, boolean online, boolean watching) {
+        return """
+                {"login":"%s","channelId":"1","online":%s,"watching":%s,"points":10,"game":"g","title":"t","viewers":1,
+                 "onlineSince":null,"minutesWatched":0,"streakPending":false,"dropsEligible":false,"multiplier":false,"source":"follow"}
+                """.formatted(login, online, watching);
+    }
+
+    @Test
+    void channelsKeepRunnerOrderAndOverviewReportsSlots() throws Exception {
+        minerMessages.handleStdout(("{\"t\":\"state\",\"user\":\"u\",\"session\":\"s\",\"streamers\":["
+                + streamer("zeta", true, true) + "," + streamer("alpha", false, false) + "," + streamer("mid", true, true) + "]}")
+                .replace("\n", ""));
+        settingsStore.save(settingsStore.get().withSlots(java.util.Arrays.asList("mid", "alpha")));
+        mvc.perform(get("/api/channels").with(oidcLogin()))
+                .andExpect(jsonPath("$[0].login").value("zeta"))
+                .andExpect(jsonPath("$[1].login").value("alpha"))
+                .andExpect(jsonPath("$[2].login").value("mid"))
+                .andExpect(jsonPath("$[2].slot").value(1))
+                .andExpect(jsonPath("$[1].slot").value(2));
+        mvc.perform(get("/api/overview").with(oidcLogin()))
+                .andExpect(jsonPath("$.slots[0].pinned").value("mid"))
+                .andExpect(jsonPath("$.slots[0].streamer.login").value("mid"))
+                .andExpect(jsonPath("$.slots[1].pinned").value("alpha"))
+                .andExpect(jsonPath("$.slots[1].pinnedOnline").value(false))
+                .andExpect(jsonPath("$.slots[1].streamer.login").value("zeta"));
+        settingsStore.save(settingsStore.get().withOrder(List.of("mid")));
+        mvc.perform(get("/api/channels").with(oidcLogin()))
+                .andExpect(jsonPath("$[0].login").value("mid"))
+                .andExpect(jsonPath("$[0].rank").value(1))
+                .andExpect(jsonPath("$[1].login").value("zeta"))
+                .andExpect(jsonPath("$[2].login").value("alpha"));
+        mvc.perform(put("/api/slots").with(oidcLogin()).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"slots\":[null,\"zeta\"]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.slots[1]").value("zeta"));
+        mvc.perform(put("/api/order").with(oidcLogin()).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"order\":[\"mid\",\"bad name\"]}"))
+                .andExpect(status().isBadRequest());
+        settingsStore.save(settingsStore.get().withSlots(null).withOrder(null));
+    }
+
     @Test
     void healthIsPublicAndUp() throws Exception {
         mvc.perform(get("/actuator/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
@@ -51,7 +98,7 @@ class TwitchlurkerApplicationTests {
 
     @Test
     void publicPagesGetTheirStylesWithoutLogin() throws Exception {
-        for (String path : new String[] {"/bye.html", "/denied.html", "/styles.css", "/app.css", "/motion.css", "/fonts/manrope.woff2", "/icon.svg"}) {
+        for (String path : new String[] {"/bye.html", "/denied.html", "/styles.css", "/motion.css", "/fonts/public-sans-400.woff2", "/icon.svg"}) {
             mvc.perform(get(path)).andExpect(status().isOk());
         }
         mvc.perform(get("/app.js")).andExpect(status().is3xxRedirection());
@@ -72,6 +119,7 @@ class TwitchlurkerApplicationTests {
         mvc.perform(get("/api/overview").with(oidcLogin()))
                 .andExpect(status().isOk())
                 .andExpect(header().string("Content-Security-Policy", org.hamcrest.Matchers.containsString("default-src 'self'")))
+                .andExpect(header().string("Content-Security-Policy", org.hamcrest.Matchers.containsString("frame-src https://player.twitch.tv")))
                 .andExpect(header().string("X-Frame-Options", "DENY"))
                 .andExpect(jsonPath("$.bot.status").value("NEEDS_LOGIN"))
                 .andExpect(jsonPath("$.twitch.state").value("NONE"))

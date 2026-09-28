@@ -140,7 +140,16 @@ public class MinerSupervisor {
     }
 
     public void onSettingsChanged(LurkerSettings before, LurkerSettings after) {
-        if (!before.minerRelevantDiff(after) || startedAt().isEmpty()) {
+        if (startedAt().isEmpty()) {
+            return;
+        }
+        if (!before.slots().equals(after.slots())) {
+            sendCommand(Map.of("cmd", "slots", "slots", after.slots()));
+        }
+        if (!before.order().equals(after.order())) {
+            sendCommand(Map.of("cmd", "order", "order", after.order()));
+        }
+        if (!before.minerRelevantDiff(after)) {
             return;
         }
         boolean onlyAdditions = before.streamers().stream().allMatch(after.streamers()::contains)
@@ -152,12 +161,16 @@ public class MinerSupervisor {
         }
     }
 
-    public synchronized void addChannelLive(String login) {
+    public void addChannelLive(String login) {
+        sendCommand(Map.of("cmd", "add", "login", login));
+    }
+
+    private synchronized void sendCommand(Map<String, ?> command) {
         if (stdin == null) {
             return;
         }
         try {
-            stdin.write(json.writeValueAsString(Map.of("cmd", "add", "login", login)) + "\n");
+            stdin.write(json.writeValueAsString(command) + "\n");
             stdin.flush();
         } catch (IOException e) {
             log.warn("Could not send command to runner: {}", e.getMessage());
@@ -304,6 +317,8 @@ public class MinerSupervisor {
         cfg.put("followRaid", s.followRaid());
         cfg.put("claimMoments", s.claimMoments());
         cfg.put("watchStreak", s.watchStreak());
+        cfg.put("order", s.order());
+        cfg.put("slots", s.slots());
         cfg.put("dropScout", Map.of("enabled", s.dropScout().enabled(), "channelsPerGame", s.dropScout().channelsPerGame(),
                 "requireLinked", s.dropScout().requireLinked()));
         Path tmp = configFile.resolveSibling("miner-config.json.tmp");

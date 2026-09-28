@@ -143,3 +143,54 @@ def pick_directory_channels(response: dict, exclude: set, limit: int) -> list:
 def parse_point_gain(message: str):
     m = _POINT_GAIN.match(message or "")
     return (m.group(2), int(m.group(1)), m.group(3)) if m else None
+
+
+def normalize_slots(slots) -> list:
+    slots = list(slots or [])[:2]
+    slots += [None] * (2 - len(slots))
+    return [s.strip().lower() if isinstance(s, str) and s.strip() else None for s in slots]
+
+
+def apply_order(streamers: list, order) -> None:
+    """Sorts in place (the miner's threads hold this list object): ranked logins first, the rest keeps its order."""
+    rank = {login: i for i, login in enumerate(order or [])}
+    original = {id(s): i for i, s in enumerate(streamers)}
+    streamers.sort(key=lambda s: (rank.get(s.username, len(rank)), original[id(s)]))
+
+
+def choose_watching(streamers: list, priority: list, pinned: list, now: float, max_watch: int = 2) -> list:
+    """Indices to watch: online pinned slots first, the rest exactly like TCPM 2.0.7's priority loop."""
+    online = [i for i, s in enumerate(streamers)
+              if s.is_online and (s.online_at == 0 or now - s.online_at > 30)]
+    chosen = []
+
+    def add(indices):
+        for i in indices:
+            if len(chosen) >= max_watch:
+                return
+            if i not in chosen:
+                chosen.append(i)
+
+    for login in pinned or []:
+        if login:
+            add([i for i in online if streamers[i].username == login])
+
+    for prior in priority:
+        if len(chosen) >= max_watch:
+            break
+        if prior == Priority.ORDER:
+            add(online)
+        elif prior in (Priority.POINTS_ASCENDING, Priority.POINTS_DESCENDING):
+            add(sorted(online, key=lambda i: streamers[i].channel_points, reverse=prior == Priority.POINTS_DESCENDING))
+        elif prior == Priority.STREAK:
+            add([i for i in online
+                 if streamers[i].settings.watch_streak
+                 and streamers[i].stream.watch_streak_missing
+                 and (streamers[i].offline_at == 0 or (now - streamers[i].offline_at) // 60 > 30)
+                 and streamers[i].stream.minute_watched < 7])
+        elif prior == Priority.DROPS:
+            add([i for i in online if streamers[i].drops_condition()])
+        elif prior == Priority.SUBSCRIBED:
+            with_multiplier = [i for i in online if streamers[i].viewer_has_points_multiplier()]
+            add(sorted(with_multiplier, key=lambda i: streamers[i].total_points_multiplier(), reverse=True))
+    return chosen[:max_watch]

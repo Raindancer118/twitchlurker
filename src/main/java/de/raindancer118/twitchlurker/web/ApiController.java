@@ -172,10 +172,25 @@ public class ApiController {
 
     @PutMapping("/settings")
     LurkerSettings saveSettings(@RequestBody LurkerSettings incoming) {
-        // autostart is controlled via start/stop, not the settings form
+        // autostart, order and slots have their own controls and are never changed by the settings form
+        var current = settings.get();
         return updateSettings(new LurkerSettings(incoming.followers(), incoming.streamers(), incoming.blacklist(),
                 incoming.priority(), incoming.followRaid(), incoming.claimMoments(), incoming.watchStreak(),
-                incoming.dropScout(), incoming.raffle(), settings.get().autostart()));
+                incoming.dropScout(), incoming.raffle(), current.autostart(), current.order(), current.slots()));
+    }
+
+    public record SlotsRequest(List<String> slots) {}
+
+    public record OrderRequest(List<String> order) {}
+
+    @PutMapping("/slots")
+    LurkerSettings slots(@RequestBody SlotsRequest request) {
+        return updateSettings(settings.get().withSlots(request.slots()));
+    }
+
+    @PutMapping("/order")
+    LurkerSettings order(@RequestBody OrderRequest request) {
+        return updateSettings(settings.get().withOrder(request.order()));
     }
 
     @GetMapping(path = "/live", produces = "text/event-stream")

@@ -1,6 +1,8 @@
 const { test, expect } = require('@playwright/test');
 
 async function login(page) {
+  // Keep e2e offline: preview images instead of live Twitch players.
+  await page.addInitScript(() => localStorage.setItem('video', '0'));
   await page.goto('/login');
   await page.fill('input[name=username]', 'dev');
   await page.fill('input[name=password]', 'e2e-pass');
@@ -19,11 +21,14 @@ for (const scheme of ['dark', 'light']) {
       await login(page);
 
       await expect(page.locator('#sidebar-state')).toHaveText('Bot läuft', { timeout: 20_000 });
-      await expect(page.locator('#active-streams .stream-card:not(.placeholder)')).toHaveCount(2, { timeout: 20_000 });
-      await expect(page.locator('#active-streams')).toContainText('papaplatte');
-      await expect(page.locator('#active-streams')).toContainText('<img src=x');
+      await expect(page.locator('#slots .slot h3')).toHaveText(['papaplatte', 'zarbex'], { timeout: 20_000 });
+      await expect(page.locator('#slots')).toContainText('<img src=x');
+      await expect(page.locator('#slots .slot-media img').first()).toHaveAttribute('src', /static-cdn\.jtvnw\.net\/previews-ttv\/live_user_papaplatte/);
       expect(await page.evaluate(() => window.__xss)).toBeUndefined();
       await expect(page.locator('#feed')).toContainText('Bonus-Truhe geöffnet');
+      await expect(page.locator('#stat-drops')).not.toHaveText('–');
+      await expect(page.locator('#state-banner')).toBeHidden();
+      await expect(page.locator('#slots .pin-icon').first()).toBeHidden();
       await expect(page.locator('#stat-today')).not.toHaveText('–');
       await expect(page.locator('#live-label')).toHaveText('Live');
       await page.waitForTimeout(4500);
@@ -86,38 +91,44 @@ test('actions: add channel, invalid settings, raffle toggle, stop/start', async 
   await expect(page.locator('#sidebar-state')).toHaveText(/Bot (startet|läuft)/, { timeout: 20_000 });
 });
 
-test('motion layer: nav indicator, entrance, draw-on, reduced-motion off', async ({ page }) => {
+test('slots, order and motion', async ({ page }) => {
   const errors = [];
   page.on('pageerror', e => errors.push(e.message));
-  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
-  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  page.on('console', m => { if (m.type() === 'error' && !m.text().includes('static-cdn')) errors.push(m.text()); });
+  await page.emulateMedia({ colorScheme: 'light', reducedMotion: 'no-preference' });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await login(page);
-  await expect(page.locator('#overview.is-entering')).toHaveCount(1, { timeout: 10_000 });
-  await expect(page.locator('#overview.is-entering')).toHaveCount(0, { timeout: 5_000 });
+  await expect(page.locator('#slots .slot h3')).toHaveText(['papaplatte', 'zarbex'], { timeout: 20_000 });
 
-  const aligned = async () => page.evaluate(() => {
-    const ind = document.querySelector('.nav-indicator').getBoundingClientRect();
-    const act = document.querySelector('nav a[aria-current]').getBoundingClientRect();
-    return Math.abs(ind.top - act.top) < 2 && Math.abs(ind.height - act.height) < 2;
-  });
-  expect(await aligned()).toBe(true);
+  // Pin trymacs to slot 1: the bot switches over, the card follows.
+  await page.selectOption('#slot-select-0', 'trymacs');
+  await expect(page.locator('#toast')).toContainText('Platz 1 gehört jetzt trymacs');
+  await expect(page.locator('#slots .slot').first().locator('h3')).toHaveText('trymacs', { timeout: 15_000 });
+  await expect(page.locator('#slots .slot').first().locator('.slot-label')).toHaveText('Platz 1 · fest');
+  await page.selectOption('#slot-select-0', '');
+  await expect(page.locator('#toast')).toContainText('wieder automatisch');
 
+  // Reorder with the keyboard buttons, then by dragging the grip.
   await page.click('nav a[href="#channels"]');
-  for (let i = 0; i < 6; i++) await page.screenshot({ path: `shots/motion-${i}.png` }), await page.waitForTimeout(90);
   await expect(page.locator('#channels.is-entering')).toHaveCount(1);
-  await expect(page.locator('.sparkline polyline[pathLength="1"]').first()).toBeVisible({ timeout: 10_000 });
-  await page.waitForTimeout(700);
-  expect(await aligned()).toBe(true);
-  const rowAnim = await page.locator('.channel-row').nth(1).evaluate(el => getComputedStyle(el).animationName);
-  expect(['rise', 'none']).toContain(rowAnim);
+  await expect(page.locator('#channel-list .channel-row')).toHaveCount(4);
+  await page.click('#channel-list [data-move="1"][data-login="papaplatte"]');
+  await expect(page.locator('#toast')).toContainText('Reihenfolge gespeichert');
+  await expect(page.locator('#channel-list .channel-row').nth(1)).toHaveAttribute('data-login', 'papaplatte');
 
-  await page.setViewportSize({ width: 390, height: 844 });
-  await page.waitForTimeout(500);
-  expect(await page.evaluate(() => {
-    const ind = document.querySelector('.nav-indicator').getBoundingClientRect();
-    const act = document.querySelector('nav a[aria-current]').getBoundingClientRect();
-    return Math.abs(ind.left - act.left) < 2 && Math.abs(ind.width - act.width) < 2;
-  })).toBe(true);
+  const grip = page.locator('#channel-list [data-grip="gronkh"]');
+  const top = page.locator('#channel-list .channel-row').first();
+  const gb = await grip.boundingBox(), tb = await top.boundingBox();
+  await page.mouse.move(gb.x + gb.width / 2, gb.y + gb.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(gb.x + gb.width / 2, tb.y + 4, { steps: 12 });
+  await page.mouse.up();
+  await expect(page.locator('#channel-list .channel-row').first()).toHaveAttribute('data-login', 'gronkh');
+  await page.waitForTimeout(5000);
+  await page.reload();
+  await page.click('nav a[href="#channels"]');
+  await expect(page.locator('#channel-list .channel-row').first()).toHaveAttribute('data-login', 'gronkh', { timeout: 10_000 });
+  await page.screenshot({ path: 'shots/order-after-reload.png', fullPage: true });
+
   expect(errors).toEqual([]);
 });

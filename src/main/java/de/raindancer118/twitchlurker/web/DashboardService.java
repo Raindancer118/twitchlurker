@@ -19,7 +19,6 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -34,12 +33,14 @@ public class DashboardService {
     public record Stats(long pointsToday, long pointsWeek, long pointsTotal, long bonusesToday, long rafflesToday,
                         long rafflesWon, long dropsToday, long dropsTotal) {}
 
+    public record Slot(int index, String pinned, boolean pinnedOnline, MinerState.Streamer streamer) {}
+
     public record Overview(Bot bot, TwitchAuthStatus twitch, RaffleService.Status raffle, List<MinerState.Streamer> watching,
-                           int online, int tracked, Stats stats, List<LurkerEvent> feed) {}
+                           List<Slot> slots, int online, int tracked, Stats stats, List<LurkerEvent> feed) {}
 
     public record Channel(String login, boolean online, boolean watching, long points, String game, String title, long viewers,
                           boolean streakPending, boolean dropsEligible, String source, long gainedToday, long gainedWeek,
-                          List<Long> spark, boolean raffles, boolean blacklisted) {}
+                          List<Long> spark, boolean raffles, boolean blacklisted, int rank, int slot) {}
 
     public record ChannelDetail(Channel channel, List<SnapshotRepository.Point> history, List<LurkerEvent> events) {}
 
@@ -96,9 +97,41 @@ public class DashboardService {
         var stats = new Stats(events.sumPoints(today), events.sumPoints(startOfWeek()), events.sumPoints(Instant.EPOCH),
                 events.count("BONUS", today), events.count("RAFFLE", today), events.count("RAFFLE_WON", Instant.EPOCH),
                 events.count("DROP", today), events.count("DROP", Instant.EPOCH));
-        return new Overview(bot(), auth.status(), raffleService.status(),
-                streamers.stream().filter(MinerState.Streamer::watching).toList(),
+        var watching = streamers.stream().filter(MinerState.Streamer::watching).toList();
+        return new Overview(bot(), auth.status(), raffleService.status(), watching, slots(streamers, watching),
                 (int) streamers.stream().filter(MinerState.Streamer::online).count(), streamers.size(), stats, events.recent(40));
+    }
+
+    /** Pinned channels keep their slot while watched; free slots show whatever the bot picked. */
+    List<Slot> slots(List<MinerState.Streamer> streamers, List<MinerState.Streamer> watching) {
+        var pins = settings.get().slots();
+        var remaining = new ArrayList<>(watching);
+        var shown = new MinerState.Streamer[2];
+        for (int i = 0; i < 2; i++) {
+            String pin = pins.get(i);
+            if (pin == null) {
+                continue;
+            }
+            for (var w : remaining) {
+                if (w.login().equals(pin)) {
+                    shown[i] = w;
+                    remaining.remove(w);
+                    break;
+                }
+            }
+        }
+        for (int i = 0; i < 2; i++) {
+            if (shown[i] == null && !remaining.isEmpty()) {
+                shown[i] = remaining.removeFirst();
+            }
+        }
+        var out = new ArrayList<Slot>(2);
+        for (int i = 0; i < 2; i++) {
+            String pin = pins.get(i);
+            boolean pinOnline = pin != null && streamers.stream().anyMatch(st -> st.login().equals(pin) && st.online());
+            out.add(new Slot(i + 1, pin, pinOnline, shown[i]));
+        }
+        return out;
     }
 
     public List<Channel> channels() {
@@ -115,22 +148,29 @@ public class DashboardService {
         history.forEach((login, points) -> byLogin.computeIfAbsent(login, l -> new MinerState.Streamer(l, null, false, false,
                 points.getLast().points(), null, null, 0, null, 0, false, false, false, "follow")));
 
-        var out = new ArrayList<Channel>();
-        for (var st : byLogin.values()) {
-            out.add(toChannel(st, today, week, history.getOrDefault(st.login(), List.of()), rafflesOff, blacklist));
+        // The saved order is authoritative (the runner may lag a cycle behind); unranked channels keep the runner's order.
+        var ordered = new ArrayList<>(byLogin.values());
+        var rankOf = new java.util.HashMap<String, Integer>();
+        for (int i = 0; i < s.order().size(); i++) {
+            rankOf.putIfAbsent(s.order().get(i), i);
         }
-        out.sort(Comparator.comparing(Channel::watching).reversed()
-                .thenComparing(Comparator.comparing(Channel::online).reversed())
-                .thenComparing(Comparator.comparingLong(Channel::gainedWeek).reversed())
-                .thenComparing(Channel::login));
+        ordered.sort(java.util.Comparator.comparingInt(st -> rankOf.getOrDefault(st.login(), Integer.MAX_VALUE)));
+        var slots = s.slots();
+        var out = new ArrayList<Channel>();
+        int rank = 1;
+        for (var st : ordered) {
+            int slot = st.login().equals(slots.get(0)) ? 1 : st.login().equals(slots.get(1)) ? 2 : 0;
+            out.add(toChannel(st, today, week, history.getOrDefault(st.login(), List.of()), rafflesOff, blacklist, rank++, slot));
+        }
         return out;
     }
 
     private Channel toChannel(MinerState.Streamer st, Map<String, Long> today, Map<String, Long> week,
-                              List<SnapshotRepository.Point> history, Set<String> rafflesOff, Set<String> blacklist) {
+                              List<SnapshotRepository.Point> history, Set<String> rafflesOff, Set<String> blacklist,
+                              int rank, int slot) {
         return new Channel(st.login(), st.online(), st.watching(), st.points(), st.game(), st.title(), st.viewers(),
                 st.streakPending(), st.dropsEligible(), st.source(), today.getOrDefault(st.login(), 0L),
-                week.getOrDefault(st.login(), 0L), spark(history), !rafflesOff.contains(st.login()), blacklist.contains(st.login()));
+                week.getOrDefault(st.login(), 0L), spark(history), !rafflesOff.contains(st.login()), blacklist.contains(st.login()), rank, slot);
     }
 
     static List<Long> spark(List<SnapshotRepository.Point> history) {

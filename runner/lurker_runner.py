@@ -15,6 +15,7 @@ import time
 import traceback
 
 import lurker_core as core
+import lurker_watch
 
 _out = os.fdopen(os.dup(1), "w", encoding="utf-8", buffering=1)
 os.dup2(2, 1)
@@ -56,6 +57,7 @@ GAME_DIRECTORY = {
 }
 
 last_watched = {}
+order = []
 scouted = set()
 extra_logins = set()
 
@@ -75,6 +77,7 @@ class JsonLogHandler(logging.Handler):
 
 
 def install_hooks():
+    lurker_watch.install()
     orig_minute = Stream.update_minute_watched
 
     def update_minute_watched(self):
@@ -163,6 +166,7 @@ def add_streamer(miner, login, source):
         miner.ws_pool.submit(PubsubTopic("community-moments-channel-v1", streamer=streamer))
     if source == "drops":
         scouted.add(login)
+    core.apply_order(miner.streamers, order)
     emit({"t": "event", "event": "STREAMER_ADDED", "login": login, "source": source})
     return True
 
@@ -177,7 +181,7 @@ def state_loop(miner, config):
             if s.username in scouted:
                 snap["source"] = "drops"
             streamers.append(snap)
-        emit({"t": "state", "user": config["login"], "session": miner.session_id,
+        emit({"t": "state", "user": config["login"], "session": miner.session_id, "slots": lurker_watch.control["pinned"],
               "startedAt": miner.start_datetime.isoformat() if miner.start_datetime else None,
               "streamers": streamers})
         time.sleep(15)
@@ -242,6 +246,13 @@ def command_loop(miner):
             wait_until_running(miner)
             extra_logins.add(cmd["login"].lower())
             add_streamer(miner, cmd["login"], "extra")
+        elif cmd.get("cmd") == "slots":
+            lurker_watch.control["pinned"] = core.normalize_slots(cmd.get("slots"))
+            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Slots: {lurker_watch.control['pinned']}"})
+        elif cmd.get("cmd") == "order":
+            order[:] = [str(o).lower() for o in cmd.get("order") or []]
+            core.apply_order(miner.streamers, order)
+            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Reihenfolge aktualisiert ({len(order)} Kanäle)"})
     # stdin closed: supervisor is gone, shut down cleanly.
     miner.end(0, 0)
 
@@ -268,6 +279,8 @@ def main():
     config["login"] = token["login"]
     core.write_cookies(os.path.join("cookies", f"{token['login']}.pkl"), token["accessToken"], token["userId"])
     extra_logins.update(s.lower() for s in config.get("streamers", []))
+    lurker_watch.control["pinned"] = core.normalize_slots(config.get("slots"))
+    order[:] = [o.lower() for o in config.get("order", [])]
 
     install_hooks()
     miner = TwitchChannelPointsMiner(
@@ -292,6 +305,7 @@ def main():
     start_thread(inventory_loop, "inventory", miner)
     start_thread(scout_loop, "drop-scout", miner, config)
     start_thread(command_loop, "commands", miner)
+    start_thread(lambda: (wait_until_running(miner), core.apply_order(miner.streamers, order)), "initial-order")
 
     miner.mine(
         streamers=config.get("streamers", []),

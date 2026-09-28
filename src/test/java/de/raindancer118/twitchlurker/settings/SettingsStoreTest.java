@@ -56,11 +56,26 @@ class SettingsStoreTest {
         var st = store();
         var s = st.get();
         assertThatThrownBy(() -> st.save(new LurkerSettings(s.followers(), s.streamers(), s.blacklist(), List.of("STREAK", "MAGIC"),
-                s.followRaid(), s.claimMoments(), s.watchStreak(), s.dropScout(), s.raffle(), s.autostart())))
+                s.followRaid(), s.claimMoments(), s.watchStreak(), s.dropScout(), s.raffle(), s.autostart(), s.order(), s.slots())))
                 .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("MAGIC");
         var badRaffle = new LurkerSettings.Raffle(true, s.raffle().joinCommands(), s.raffle().bots(), List.of(), 30, 5, 180);
         assertThatThrownBy(() -> st.save(s.withRaffle(badRaffle)))
                 .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Verzögerung");
+    }
+
+    @Test
+    void slotsAndOrderAreNormalizedAndValidated() {
+        var st = store();
+        assertThat(st.get().slots()).containsExactly(null, null);
+        assertThat(st.get().order()).isEmpty();
+        var saved = st.save(st.get().withSlots(java.util.Arrays.asList(" Zarbex ", "")).withOrder(List.of("B_b", "a_a", "b_b")));
+        assertThat(saved.slots()).containsExactly("zarbex", null);
+        assertThat(saved.order()).containsExactly("b_b", "a_a");
+        assertThat(store().get().slots()).containsExactly("zarbex", null);
+        assertThatThrownBy(() -> st.save(st.get().withSlots(List.of("no way"))))
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("no way");
+        assertThat(saved.minerRelevantDiff(saved.withSlots(List.of("x_x")))).isFalse();
+        assertThat(saved.minerRelevantDiff(saved.withOrder(List.of("x_x")))).isFalse();
     }
 
     @Test

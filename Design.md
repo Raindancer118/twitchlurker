@@ -1,55 +1,44 @@
-# twitchlurker · Loot Room
+# twitchlurker · Design
+
+Stand 28.09.2026. Auf Toms Wunsch im Stil von **StoneIntelligence** (kb.tstieh.de, `StoneSync/webapp/Design.md`) mit **Twitch-Farben**. Vorgänger „Loot Room“ (Astra, Kohle/Limette) liegt archiviert unter `prototype/`.
 
 ## Idee
-Ein privater Raum für die Beute aus Streams: ruhige Kohleflächen, frischgrüne Statussignale und zwei großformatige, grafische Spielwelten. Die aktive Session steht im Mittelpunkt. Die Illustrationen erinnern an ausgeschnittene Landschaften und bedruckte Gaming-Sammelkarten. Keine Video-Vorschau, keine vorgetäuschten Streambilder. Eigenständige, lokal gezeichnete SVGs.
+Ein ruhiges Instrumentenpult neben einem hellen Schreibtisch: dunkle Navigationsleiste links, helle Arbeitsfläche rechts, redaktionelle Georgia-Überschriften, kleine Versal-Überzeilen. Twitch-Lila ist der eine Akzent (Hauptknöpfe, aktive Einträge, Links, Live-Signale), Twitch-Rot nur für LIVE, Fehler in Rost. Oben auf der Übersicht laufen die zwei gelurkten Streams als echte Player.
 
-Erwogen wurden eine Sport-Anzeigetafel (zu zahlenlastig), ein Inventar-Raster (zu kleinteilig) und der gewählte Loot Room. Die drei im Brief verworfenen Richtungen werden nicht wiederaufgenommen. Funktionale Klarheit aus Fluent/M3 und bewusst großzügige Flächen aus den kuratierten Designreferenzen; keine externe Website kopiert.
-
-## Farben / verbindliche Tokens
-| Token | Dark | Light | Zweck |
+## Farbe
+| Token | Hell | Dunkel | Verwendung |
 |---|---|---|---|
-| `--bg` | #151714 | #f4f5ee | Arbeitsfläche |
-| `--surface` | #1d201b | #ffffff | Module |
-| `--raised` | #272b24 | #e9eddf | Eingaben / Hover |
-| `--ink` | #f2f4e9 | #20251b | Primärtext |
-| `--muted` | #a8af9d | #58634f | Sekundärtext |
-| `--line` | #373e30 | #cbd2c0 | Trennlinien |
-| `--accent` | #d0ef80 | #d0ef80 | Aktionsfläche, immer dunkle Schrift |
-| `--positive` | #d0ef80 | #3d641b | Positiver Text / Charts |
-| `--warning` | #ffbf91 | #89400b | Warnung |
-
-Illustrationen behalten in beiden Modi ihre Pigmentfarben. System-Farbschema ist Default; ein expliziter Wechsel ist lokal gespeichert.
-
-Kontrollränder nutzen zusätzlich `--control-line`: Dark #727b66, Light #7e896f. Dekorative Modultrennlinien bleiben zurückhaltender.
+| `--bg` | `#f7f7f8` | `#0e0e10` | Seite |
+| `--surface` | `#ffffff` | `#18181b` | Panels, Kopfzeile |
+| `--surface-raised` | `#ffffff` | `#1f1f23` | Eingaben, Knöpfe |
+| `--line` | `#e5e5ea` | `#2f2f35` | Linien |
+| `--ink` / `--ink-dim` | `#0e0e10` / `#53535f` | `#efeff1` / `#adadb8` | Text |
+| `--purple` | `#9146ff` | `#a970ff` | Akzent, Links, Fokus |
+| `--purple-strong` | `#772ce8` | `#9146ff` | Hover/gedrückt, Hauptknopf-Fläche im Dunkeln |
+| `--ice` | `#f0f0ff` | `#26213a` | Hintergrund aktiver Einträge |
+| `--live` | `#eb0400` | `#ff4a4a` | LIVE-Marke |
+| `--rust` | `#a04429` | `#ff8a6b` | Fehler, Warnungen |
+| Navigation | `#0e0e10` | `#18181b` | Leiste links, eigene Token |
 
 ## Typografie
-Space Grotesk Variable für Wortmarke, Überschriften und Zahlen; Manrope Variable für UI und Lesetext. Beide SIL OFL 1.1, lokale WOFF2 unter `prototype/fonts/`, Lizenzdateien daneben. H1 36–52 px, Tracking −0.055em, Zeilenhöhe 1.05; H2 22 px. Body 14–16 px, 1.6. Zahlen tabellarisch. Kein Monospace.
+Public Sans 400–700 (selbst gehostet, OFL) für UI und Fließtext, Georgia für Seitentitel und Kanalnamen in den Stream-Karten. Überzeilen: Versalien, 0,7rem, Tracking 0,15em. Zahlen tabellarisch.
 
-## Layout und Komponenten
-Desktop: 224 px Seitenleiste, Arbeitsbereich max. 1740 px, 40 px Außenabstand. Übersicht: Titelzeile, flache Statistikleiste, zwei asymmetrische Streamkarten (1.15:1), darunter Aktivitätsfeed plus nächste Belohnung. Karten 18 px, kompakte Controls 8 px, Avatare kreisförmig, Listen ohne Schatten. Keine drei Icon-Karten als Statistik.
-
-Unter 1000 px: kompakte horizontale Navigation, Inhalt 24 px. Unter 680 px: 16 px Rand, einspaltige Karten, zweispaltige Statistikleiste, Tabellen werden beschriftete Zeilen. Touchflächen mindestens 48×48 px. Auf 4K bleibt die Inhaltsbreite begrenzt. Container Queries passen Streamdetails an die tatsächlich verfügbare Kartenbreite an.
-
-Navigation: echte Hashlinks, `aria-current=page`, Browser Zurück/Vorwärts. Kanal-Details im nativen Dialog mit Escape und Fokusrückgabe. Formfelder stets beschriftet, sichtbarer Tastaturfokus. Fortschritt mit nativem `progress` und ausgeschriebenen Werten. Zustände nicht nur über Farbe darstellen.
+## Aufbau
+- **Leiste links** (238 px, dunkel): Marke, Überzeile „Bereiche“, Einträge mit schmaler Federleiste am linken Rand und heller Ice-Fläche für den aktiven Bereich. Unten Bot-Status und Konto. Mobil wird daraus eine horizontale Leiste oben.
+- **Kopfzeile** 76 px, sticky mit weicher Scroll-Kante: Brotkrumen, Live-Status, Farbschema.
+- **Übersicht:** Titel, Kennzahlen-Zeile, darunter **zwei Slots** nebeneinander: Twitch-Player (stumm, 16:9) mit Kopf „Platz 1 · Automatisch/Fest“ und Auswahlmenü, darunter Kanal, Titel, Punkte heute. Handy/Datensparmodus: Vorschaubild mit Abspielknopf. Darunter Aktivität und nächster Drop.
+- **Kanäle:** Liste in der tatsächlichen Reihenfolge des Bots. Ziehen am Griff sortiert um (Maus/Touch), Pfeilknöpfe für Tastatur. Rang, Slot-Marke, Status.
+- Panels: weiß, 1 px Linie, 6 px Radius, heben sich beim Überfahren um 1 px. Knöpfe 5 px Radius, mind. 44 px hoch (Hauptaktionen 48 px).
 
 ## Motion
-Motion erzählt, dass im Hintergrund etwas passiert. Sie zeigt Zustand und Herkunft neuer Daten und dient nicht als Deko. Alles steht hinter `prefers-reduced-motion: no-preference`; unter `reduce` bleibt die Seite statisch (Endzustände sofort).
+Wie StoneIntelligence: leise und kurz, Bewegung zeigt, wohin etwas geht. Federn für Markierungen. Alles hinter `prefers-reduced-motion: no-preference`, sonst statisch.
 
-Kurven und Zeiten (Tokens in `motion.css`): `--ease-out: cubic-bezier(.2,.8,.2,1)`, `--ease-spring: cubic-bezier(.34,1.4,.64,1)`; kurz 160 ms, mittel 320 ms, Eintritt 520 ms, Stagger 45 ms (max. 12 Elemente).
-
-- **Screenwechsel:** View Transition, Inhalt gleitet 10 px nach oben ein, alter Screen blendet aus (260 ms). Die aktive Navigationsmarke wandert als eigener Indikator zwischen den Punkten (Sidebar vertikal, mobil horizontal).
-- **Eintritt:** Beim Öffnen eines Screens steigen Karten, Zeilen und Feed-Einträge gestaffelt auf. Nur beim Öffnen, nie bei Hintergrund-Refresh.
-- **Neue Daten:** Neue Feed-Einträge (SSE) klappen oben auf und tragen kurz einen Akzent-Schimmer. Zahlen zählen zur neuen Summe hoch (600 ms) und zeigen einen schwebenden „+N“-Chip.
-- **Live:** Statuspunkte gelurkter Kanäle senden einen ruhigen Puls (2,4 s). Pausierter Bot: kein Puls.
-- **Illustrationen:** Landschaften driften sehr langsam (Ken-Burns, 24 s, ±2 %), bei Hover minimal schneller/näher. Die Truhe schwebt (6 s, 4 px), Funken blinken versetzt. Scroll-gekoppelte Parallaxe der Stream-Art über `animation-timeline: view()`.
-- **Fortschritt:** Balken füllen sich beim Erscheinen von 0 auf; Sparklines und Verlaufschart zeichnen ihre Linie (700 ms).
-- **Feedback:** Buttons geben beim Drücken leicht nach (scale .97). Toast gleitet von unten ein. Dialog skaliert aus 0,97 mit Backdrop-Fade. Raffle-Gewinne bekommen einen einmaligen Glanz-Sweep. Der Device-Code „atmet“, solange auf Bestätigung gewartet wird.
-
-Verboten: Endlosanimationen auf Text, Bewegung über 12 px bei Eintritt, Animationen, die Layout verschieben (nur `transform`/`opacity`/`clip-path`/`filter`).
-
-## Mock-Verhalten und Backend-Vertrag
-Alle Daten sind ein fiktiver Snapshot vom 28.09.2026, 20:42 Uhr. Die Oberfläche benennt den Prototyp dauerhaft. Kein Twitch- oder Authentik-API-Zugriff. Start/Stopp/Neustart, Login-Erfolg, Drops claimen, Raffle-Schalter und Ereignisse sind ausdrücklich lokale Simulationen. Einstellungen und Theme werden in localStorage gespeichert; Loginstatus bleibt in der Sitzung. Erneutes Laden startet den Beispieldatensatz neu.
-
-Authentik schützt später die gesamte App; Twitch-Device-Login ist davon getrennt. Device-Code und Bestätigungsaktion sind nur Demo. Produktion: serverseitige Tokens, Ablauf/Polling und Authentik-Callback implementieren; keine Secrets in localStorage. CSP ist bereits restriktiv über Meta gesetzt (nur eigene Dateien, keine Inline-Skripte/-Styles); frame-ancestors, HSTS, nosniff, Referrer- und Permissions-Policy als HTTP-Header beim Deployment ergänzen.
-
-Zwei aktive Kanäle maximal. Auswahl: Streak vor Drops vor Kanalreihenfolge. Bei Stopp/Tokenfehler keine aktive Watch-Time. Historische Punkte bleiben erhalten. Beim Erstlogin werden historische Module ausgeblendet. Drop-Kampagnen zeigen Spiel, Belohnung, benötigte Minuten, Fortschritt, Ablauf und Accountverknüpfung. Raffles zeigen Erkennung, Befehl und Ergebnis; pro Erkennung einmalige Teilnahme. Settings bestehen aus Priorisierung, Keywords, zusätzlichen Kanälen und Blacklist.
+- Tokens (`motion.css`): `--ease-out`, `--ease-in-out`, `--ease-spring` (Federkurve als `linear()`), 140/260/520 ms, Stagger 40 ms, Wege 4–8 px.
+- Bereichswechsel: View Transition, Inhalt gleitet 8 px hoch, die aktive Navigationsfläche wandert zum neuen Eintrag, schmale Federleiste links.
+- Auftritt: Leiste und Kopfzeile blenden ein, Navigationseinträge gestaffelt; Seitentitel wird per Wipe enthüllt; Inhalte steigen gestaffelt auf (nur beim Öffnen eines Bereichs, nie beim Hintergrund-Refresh).
+- Kopfzeile sticky mit weicher Scroll-Kante (`animation-timeline: scroll()`).
+- Karten heben sich beim Überfahren um 1 px, Knöpfe geben nach (scale .98), Hauptknopf hebt sich mit lila Schatten.
+- Kanalliste: Akzentleiste bei Überfahren, geänderte Punktzahl blitzt lila, Drag-Ziel als 2-px-Linie.
+- Live: neue Aktivität klappt federnd auf und schimmert kurz, Zahlen zählen hoch mit „+N“, Statuspunkte pulsieren, LIVE-Marke atmet, Player/Vorschau blenden ein. Schleifen behalten ihre Phase über Re-Renders (`--phase`).
+- Rückmeldung: Toast und Dialog federn herein, Schalter federn, Raffle-Gewinn mit einmaligem Glanz, Device-Code atmet während des Wartens.
+- **Bewusst nicht** (wie bei Stone abgelehnt): Lichtfleck am Zeiger, Glanz über Knöpfe, Bewegung an Navigationssymbolen.

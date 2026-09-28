@@ -6,7 +6,8 @@ Lurkt rund um die Uhr auf Twitch und nimmt mit, was es gibt: Kanalpunkte, Bonus-
 
 - **Spring Boot (Java 25)**: Web-UI, REST-API, Authentik-OIDC, Twitch-Device-Login, SQLite (Flyway), Raffle-Chatwatcher (Twitch-IRC über WebSocket).
 - **`runner/lurker_runner.py`**: startet [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) (gepinnt auf 2.0.7) als Subprozess und meldet Zustand/Ereignisse als JSON-Zeilen. Findet zusätzlich Kanäle für laufende Drop-Kampagnen.
-- Frontend: statisches HTML/CSS/JS unter `src/main/resources/static`, Design in `Design.md`.
+- `runner/lurker_watch.py` ersetzt TCPMs Minute-Watched-Schleife: feste Slots aus dem Dashboard gehen vor, danach TCPMs Prioritäten (`lurker_core.choose_watching`). Slots und Reihenfolge wirken live per stdin-Befehl.
+- Frontend: statisches HTML/CSS/JS unter `src/main/resources/static`, Stil wie StoneIntelligence mit Twitch-Farben, Design in `Design.md`. Die beiden Slots zeigen den Twitch-Player (`frame-src https://player.twitch.tv`).
 
 ## Lokal
 

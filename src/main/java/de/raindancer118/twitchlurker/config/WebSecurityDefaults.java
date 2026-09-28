@@ -7,7 +7,7 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 final class WebSecurityDefaults {
 
     static final String CSP = "default-src 'self'; script-src 'self'; style-src 'self'; font-src 'self'; "
-            + "img-src 'self' data: https://static-cdn.jtvnw.net; connect-src 'self'; frame-ancestors 'none'; "
+            + "img-src 'self' data: https://static-cdn.jtvnw.net; connect-src 'self'; frame-src https://player.twitch.tv; frame-ancestors 'none'; "
             + "base-uri 'self'; form-action 'self'; object-src 'none'";
 
     private WebSecurityDefaults() {}
@@ -16,7 +16,7 @@ final class WebSecurityDefaults {
         http.authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health/**", "/actuator/health", "/denied.html", "/bye.html",
                                 "/fonts/**", "/icon.svg", "/favicon.ico", "/error",
-                                "/styles.css", "/app.css", "/motion.css").permitAll()
+                                "/styles.css", "/motion.css").permitAll()
                         .anyRequest().authenticated())
                 .csrf(c -> c.spa())
                 .logout(l -> l.logoutUrl("/logout").logoutSuccessUrl("/bye.html"))

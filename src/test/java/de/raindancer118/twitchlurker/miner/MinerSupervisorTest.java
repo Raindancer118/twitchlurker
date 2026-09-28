@@ -83,6 +83,12 @@ class MinerSupervisorTest {
         supervisor.addChannelLive("trymacs");
         await().atMost(Duration.ofSeconds(5)).until(() -> logMessages().contains("cmd add trymacs"));
 
+        var before = settings.get();
+        var after = settings.save(before.withSlots(List.of("zarbex")).withOrder(List.of("trymacs", "zarbex")));
+        supervisor.onSettingsChanged(before, after);
+        await().atMost(Duration.ofSeconds(5)).until(() -> logMessages().contains("cmd slots zarbex,") && logMessages().contains("cmd order trymacs,zarbex"));
+        assertThat(supervisor.restarts()).isZero();
+
         supervisor.stop();
         assertThat(supervisor.status()).isEqualTo(MinerSupervisor.Status.STOPPED);
         assertThat(logMessages()).contains("bye");
