@@ -20,7 +20,7 @@ RUN python3 -m venv /opt/venv \
 RUN useradd --system --uid 10001 --home /app lurker && mkdir -p /data && chown lurker /data
 WORKDIR /app
 COPY --from=build /app.jar /app/app.jar
-COPY runner/lurker_runner.py runner/lurker_core.py /app/runner/
+COPY runner/*.py /app/runner/
 ENV LURKER_DATA_DIR=/data \
     LURKER_PYTHON=/opt/venv/bin/python \
     LURKER_RUNNER=/app/runner/lurker_runner.py \

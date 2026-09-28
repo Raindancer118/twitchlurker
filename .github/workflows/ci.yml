@@ -79,7 +79,13 @@ jobs:
             ./ oromis@92.5.78.34:/home/oromis/twitchlurker/
       - name: Build and restart on glaedr (arm64)
         run: |
-          ssh oromis@92.5.78.34 'cd /home/oromis/twitchlurker && test -f .env && docker compose build --pull && docker compose up -d'
+          ssh oromis@92.5.78.34 'cd /home/oromis/twitchlurker && test -f .env && docker compose build --pull'
+      - name: Smoke-test the runner inside the new image (before it goes live)
+        run: |
+          ssh oromis@92.5.78.34 "cd /home/oromis/twitchlurker && docker compose run --rm --no-deps --entrypoint /opt/venv/bin/python twitchlurker -c 'import sys; sys.path.insert(0, \"/app/runner\"); import lurker_core, lurker_watch, lurker_runner; lurker_runner.install_hooks(); print(\"runner ok\", file=sys.stderr)'"
+      - name: Switch to the new image
+        run: |
+          ssh oromis@92.5.78.34 'cd /home/oromis/twitchlurker && docker compose up -d'
       - name: Wait for health
         run: |
           for i in $(seq 1 40); do
