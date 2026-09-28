@@ -25,12 +25,12 @@ for (const scheme of ['dark', 'light']) {
       await page.setViewportSize(viewport);
       await login(page);
 
-      await expect(page.locator('#sidebar-state')).toHaveText('Bot läuft', { timeout: 20_000 });
+      await expect(page.locator('#sidebar-state')).toHaveText('Bot running', { timeout: 20_000 });
       await expect(page.locator('#slots .slot h3')).toHaveText(['papaplatte', 'zarbex'], { timeout: 20_000 });
       await expect(page.locator('#slots')).toContainText('<img src=x');
       await expect(page.locator('#slots .slot-media img').first()).toHaveAttribute('src', /static-cdn\.jtvnw\.net\/previews-ttv\/live_user_papaplatte/);
       expect(await page.evaluate(() => window.__xss)).toBeUndefined();
-      await expect(page.locator('#feed')).toContainText('Bonus-Truhe geöffnet');
+      await expect(page.locator('#feed')).toContainText('Bonus chest opened');
       await expect(page.locator('#stat-drops')).not.toHaveText('–');
       await expect(page.locator('#state-banner')).toBeHidden();
       await expect(page.locator('#slots .pin-icon').first()).toBeHidden();
@@ -40,6 +40,8 @@ for (const scheme of ['dark', 'light']) {
         await expect(page.locator('.tabbar')).toBeVisible();
         await expect(page.locator('.sidebar')).toBeHidden();
         expect(await page.locator('#channel-search').evaluate(el => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThanOrEqual(16);
+        // Tab labels must stay on one line (English labels are longer than German ones were).
+        expect(await page.locator('.tabs button').first().evaluate(el => el.getBoundingClientRect().height)).toBeLessThan(60);
       }
       await expect(page.locator('#stat-today')).not.toHaveText('–');
       await expect(page.locator('#live-label')).toHaveText('Live');
@@ -57,7 +59,7 @@ for (const scheme of ['dark', 'light']) {
 
       await go(page, 'drops');
       await expect(page.locator('#campaigns')).toContainText('Hazmat Suit');
-      await expect(page.locator('#campaigns')).toContainText('63 %');
+      await expect(page.locator('#campaigns')).toContainText('63%');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-drops.png`, fullPage: true });
 
       await go(page, 'raffles');
@@ -65,7 +67,7 @@ for (const scheme of ['dark', 'light']) {
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-raffles.png`, fullPage: true });
 
       await go(page, 'bot');
-      await expect(page.locator('#bot-state')).toHaveText('Läuft');
+      await expect(page.locator('#bot-state')).toHaveText('Running');
       await expect(page.locator('#device-login')).toContainText('tomlurkt');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-bot.png`, fullPage: true });
 
@@ -97,19 +99,19 @@ test('actions: add channel, invalid settings, raffle toggle, stop/start', async 
   await page.fill('#delay-min', '90');
   await page.fill('#delay-max', '10');
   await page.click('#settings-form button[type=submit]');
-  await expect(page.locator('#save-message')).toContainText('Verzögerung');
+  await expect(page.locator('#save-message')).toContainText('Delay');
 
   await page.goto('/#raffles');
   const toggle = page.locator('#raffle-toggles input').first();
   await toggle.click();
-  await expect(page.locator('#toast')).toContainText('Keine Raffles mehr');
+  await expect(page.locator('#toast')).toContainText('No more raffles');
 
   await page.goto('/#bot');
-  await expect(page.locator('#bot-toggle')).toHaveText('Bot stoppen', { timeout: 20_000 });
+  await expect(page.locator('#bot-toggle')).toHaveText('Stop bot', { timeout: 20_000 });
   await page.click('#bot-toggle');
-  await expect(page.locator('#bot-state')).toHaveText('Pausiert', { timeout: 30_000 });
+  await expect(page.locator('#bot-state')).toHaveText('Paused', { timeout: 30_000 });
   await page.click('#bot-toggle');
-  await expect(page.locator('#sidebar-state')).toHaveText(/Bot (startet|läuft)/, { timeout: 20_000 });
+  await expect(page.locator('#sidebar-state')).toHaveText(/Bot (starting|running)/, { timeout: 20_000 });
 });
 
 test('slots, order and motion', async ({ page }) => {
@@ -123,18 +125,18 @@ test('slots, order and motion', async ({ page }) => {
 
   // Pin trymacs to slot 1: the bot switches over, the card follows.
   await page.selectOption('#slot-select-0', 'trymacs');
-  await expect(page.locator('#toast')).toContainText('Platz 1 gehört jetzt trymacs');
+  await expect(page.locator('#toast')).toContainText('Slot 1 now belongs to trymacs');
   await expect(page.locator('#slots .slot').first().locator('h3')).toHaveText('trymacs', { timeout: 15_000 });
-  await expect(page.locator('#slots .slot').first().locator('.slot-label')).toHaveText('Platz 1 · fest');
+  await expect(page.locator('#slots .slot').first().locator('.slot-label')).toHaveText('Slot 1 · pinned');
   await page.selectOption('#slot-select-0', '');
-  await expect(page.locator('#toast')).toContainText('wieder automatisch');
+  await expect(page.locator('#toast')).toContainText('automatic again');
 
   // Reorder with the keyboard buttons, then by dragging the grip.
   await go(page, 'channels');
   await expect(page.locator('#channels.is-entering')).toHaveCount(1);
   await expect(page.locator('#channel-list .channel-row')).toHaveCount(4);
   await page.click('#channel-list [data-move="1"][data-login="papaplatte"]');
-  await expect(page.locator('#toast')).toContainText('Reihenfolge gespeichert');
+  await expect(page.locator('#toast')).toContainText('Order saved');
   await expect(page.locator('#channel-list .channel-row').nth(1)).toHaveAttribute('data-login', 'papaplatte');
 
   const grip = page.locator('#channel-list [data-grip="gronkh"]');
@@ -179,7 +181,7 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
 
   await go(page, 'channels');
   await page.click('#refresh-follows');
-  await expect(page.locator('#toast')).toContainText('Follows werden abgeglichen');
+  await expect(page.locator('#toast')).toContainText('Syncing follows');
   await expect(page.locator('#channel-list .channel-row[data-login="newfollow"]')).toHaveCount(1, { timeout: 20_000 });
 
   await go(page, 'settings');
@@ -187,7 +189,7 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await page.fill('#lurk-message', '!lurk bin im Hintergrund');
   await page.selectOption('#lurk-repeat', '120');
   await page.click('#settings-form button[type=submit]');
-  await expect(page.locator('#toast')).toContainText('gespeichert');
+  await expect(page.locator('#toast')).toContainText('saved');
   await page.reload();
   await go(page, 'settings');
   await expect(page.locator('#lurk-message')).toHaveValue('!lurk bin im Hintergrund');

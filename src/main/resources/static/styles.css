@@ -237,7 +237,8 @@ progress::-moz-progress-bar{background:linear-gradient(90deg,#9146ff,#bf94ff);bo
 .live-dot{width:8px;height:8px;border-radius:50%;background:var(--live);display:inline-block}
 
 /* Drops */
-.tabs{display:inline-flex;gap:4px;padding:4px;background:var(--surface);border-radius:var(--r-pill);box-shadow:var(--shadow-soft);margin-bottom:20px}
+.tabs{display:inline-flex;gap:4px;padding:4px;background:var(--surface);border-radius:var(--r-pill);box-shadow:var(--shadow-soft);margin-bottom:20px;max-width:100%;overflow-x:auto;scrollbar-width:none}
+.tabs button{white-space:nowrap;flex:0 0 auto}
 .tabs button{border-radius:var(--r-pill);background:transparent;color:var(--ink-dim);min-height:40px}
 .tabs button.selected{background:#9146ff;color:#fff}
 .tabs span{font-size:.75rem;font-weight:900;background:rgb(145 70 255 / .15);border-radius:var(--r-pill);padding:0 8px}
@@ -387,6 +388,7 @@ dialog h2{font-weight:900;font-size:1.9rem}
   .tab-indicator{position:absolute;left:0;top:6px;bottom:6px;border-radius:18px;background:#9146ff;z-index:0}
 }
 @media (max-width:420px){
+  .tabs button{padding:.5rem .8rem;font-size:.86rem;gap:6px}
   .slot-head{flex-wrap:wrap;padding:10px 12px}
   .slot-head select{flex:1;min-width:0}
   .campaign{grid-template-columns:64px minmax(0,1fr);gap:12px}

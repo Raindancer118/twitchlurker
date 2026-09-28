@@ -60,7 +60,7 @@ class SettingsStoreTest {
                 .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("MAGIC");
         var badRaffle = new LurkerSettings.Raffle(true, s.raffle().joinCommands(), s.raffle().bots(), List.of(), 30, 5, 180);
         assertThatThrownBy(() -> st.save(s.withRaffle(badRaffle)))
-                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Verzögerung");
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Delay");
     }
 
     @Test
@@ -96,7 +96,7 @@ class SettingsStoreTest {
         assertThat(saved.dropScout().games()).containsExactly("Minecraft", "VALORANT");
         assertThat(saved.minerRelevantDiff(saved.withWatchGames(List.of("Rust")))).isFalse();
         assertThatThrownBy(() -> st.save(s.withWatchGames(List.of("x".repeat(81)))))
-                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Spiel");
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("game");
     }
 
     @Test
@@ -107,9 +107,9 @@ class SettingsStoreTest {
         assertThat(lurk.message()).isEqualTo("!lurk");
         assertThat(lurk.repeatMinutes()).isZero();
         assertThatThrownBy(() -> st.save(st.get().withLurk(new LurkerSettings.Lurk(true, "!lurk\nspam", 0))))
-                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Lurk");
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Lurk message");
         assertThatThrownBy(() -> st.save(st.get().withLurk(new LurkerSettings.Lurk(true, "!lurk", 5))))
-                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Wiederholung");
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Repeat");
         assertThat(st.save(st.get().withLurk(new LurkerSettings.Lurk(true, "  !lurk bin im Hintergrund ", 120))).lurk().message())
                 .isEqualTo("!lurk bin im Hintergrund");
     }

@@ -154,7 +154,7 @@ def add_streamer(miner, login, source):
     try:
         streamer.channel_id = twitch.get_channel_id(login)
     except StreamerDoesNotExistException:
-        emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Kanal {login} existiert nicht"})
+        emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Channel {login} does not exist"})
         return False
     streamer.settings = set_default_settings(streamer.settings, Settings.streamer_settings)
     streamer.settings.bet = set_default_settings(streamer.settings.bet, Settings.streamer_settings.bet)
@@ -197,7 +197,7 @@ def inventory_loop(miner):
             snap = core.inventory_snapshot(inventory)
             emit({"t": "drops", **snap})
         except Exception as e:
-            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Inventar nicht lesbar: {e}"})
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read inventory: {e}"})
         time.sleep(300)
 
 
@@ -239,13 +239,13 @@ def drops_loop(miner, config):
                     community = fetch_community_drops(url) or community
                     fetched_at = time.time()
                 except Exception as e:
-                    emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Liste nicht erreichbar: {e}"})
+                    emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop list unreachable: {e}"})
             inventory = twitch._Twitch__get_inventory() or {}
             catalogue = core.community_catalogue(community, watch_games, core.linked_from_inventory(inventory))
             access = "community" if community is not None else "unavailable"
             emit({"t": "campaigns", "campaigns": catalogue, "access": access})
             emit({"t": "log", "level": "INFO", "logger": "runner",
-                  "msg": f"Drop-Katalog: {len(catalogue)} Kampagnen ({access}), beobachtet: {', '.join(watch_games) or '–'}"})
+                  "msg": f"Drop catalogue: {len(catalogue)} campaigns ({access}), watching: {', '.join(watch_games) or '–'}"})
 
             if scouting:
                 known = {s.username for s in miner.streamers} | blacklist
@@ -271,10 +271,10 @@ def drops_loop(miner, config):
                             known.add(login)
                     if picked:
                         emit({"t": "log", "level": "INFO", "logger": "runner",
-                              "msg": f"Drops für {target['displayName']}: lurke {', '.join(picked)}"})
+                              "msg": f"Drops for {target['displayName']}: lurking {', '.join(picked)}"})
                     time.sleep(random.uniform(1, 3))
         except Exception as e:
-            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Suche fehlgeschlagen: {e}"})
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop hunt failed: {e}"})
         drops_wake.wait(int(scout.get("intervalSeconds", 600)))
 
 follow_lock = threading.Lock()
@@ -296,7 +296,7 @@ def sync_follows(miner, config):
         for login in added:
             add_streamer(miner, login, "follow")
         if added or removed:
-            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Follows aktualisiert: +{len(added)} / -{len(removed)}"})
+            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Follows synced: +{len(added)} / -{len(removed)}"})
 
 
 def follow_loop(miner, config):
@@ -306,7 +306,7 @@ def follow_loop(miner, config):
         try:
             sync_follows(miner, config)
         except Exception as e:
-            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Follows nicht lesbar: {e}"})
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read follows: {e}"})
 
 
 def command_loop(miner, config):
@@ -331,7 +331,7 @@ def command_loop(miner, config):
         elif cmd.get("cmd") == "order":
             order[:] = [str(o).lower() for o in cmd.get("order") or []]
             core.apply_order(miner.streamers, order)
-            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Reihenfolge aktualisiert ({len(order)} Kanäle)"})
+            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Order updated ({len(order)} channels)"})
     # stdin closed: supervisor is gone, shut down cleanly.
     miner.end(0, 0)
 

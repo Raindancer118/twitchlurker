@@ -106,7 +106,7 @@ class TwitchChatClientTest {
     void stopsOnAuthFailure() {
         client.open("tomlurkt", "bad", received::add);
         onText.accept(":tmi.twitch.tv NOTICE * :Login authentication failed\r\n");
-        assertThat(client.problem()).contains("abgelehnt");
+        assertThat(client.problem()).contains("rejected");
         assertThat(transportClosed).isTrue();
         onClosed.accept(null);
         drainTimers();

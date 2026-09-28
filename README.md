@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/banner.svg" alt="twitchlurker – lurkt rund um die Uhr auf Twitch und sammelt deine Belohnungen" width="100%">
+<img src="docs/banner.svg" alt="twitchlurker – lurks on Twitch around the clock and collects your rewards" width="100%">
 
 <br>
 
@@ -12,138 +12,138 @@
 ![Python](https://img.shields.io/badge/Python-3.12-3776ab?logo=python&logoColor=white)
 [![License](https://img.shields.io/badge/license-do_whatever_the_f*ck_you_want-ff5a5a)](LICENSE)
 
-**Dein Twitch-Account sammelt, während du lebst.**<br>
-Kanalpunkte, Bonus-Truhen, Watch-Streaks, Raids, Moments, Drops und Chat-Verlosungen, rund um die Uhr,<br>
-mit einem Dashboard, das man gern aufmacht. Selbst gehostet, auf deinem Server, mit deinem Login.
+**Your Twitch account collects while you live your life.**<br>
+Channel points, bonus chests, watch streaks, raids, moments, drops and chat raffles, around the clock,<br>
+with a dashboard you actually enjoy opening. Self-hosted, on your server, behind your login.
 
-[Schnellstart](#-schnellstart) · [Funktionen](#-was-er-alles-kann) · [Screenshots](#-so-sieht-es-aus) · [Konfiguration](#%EF%B8%8F-konfiguration) · [Wie es funktioniert](#-wie-es-funktioniert)
+[Quick start](#-quick-start) · [Features](#-what-it-does) · [Screenshots](#-what-it-looks-like) · [Configuration](#%EF%B8%8F-configuration) · [How it works](#-how-it-works)
 
 <br>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/overview-dark.png">
-  <img src="docs/screenshots/overview-light.png" alt="Übersicht mit den zwei gelurkten Streams, Kennzahlen und Aktivität" width="92%">
+  <img src="docs/screenshots/overview-light.png" alt="Overview with the two lurked streams, stats and activity" width="92%">
 </picture>
 
 </div>
 
 <br>
 
-## ✨ Was er alles kann
+## ✨ What it does
 
 <table>
 <tr>
 <td width="50%" valign="top">
 
-### 📺 Lurken, das sich lohnt
-- Lurkt **24/7** in deinen Follows, Twitch zählt immer zwei Kanäle gleichzeitig
-- **Slots selbst belegen**: zwei Plätze, jeder „automatisch“ oder fest auf einen Kanal
-- **Reihenfolge per Drag & Drop**, wirkt sofort, ohne Neustart
-- Holt **Bonus-Truhen**, sichert **Watch-Streaks**, folgt **Raids**, claimt **Moments**
-- Die zwei gelurkten Streams laufen als **echter Twitch-Player** im Dashboard
-- Neue Follows kommen **automatisch** dazu
+### 📺 Lurking that pays off
+- Lurks your follows **24/7**; Twitch counts two channels at a time
+- **Assign the slots yourself**: two seats, each "automatic" or pinned to a channel
+- **Drag & drop the order**, applied instantly, no restart
+- Grabs **bonus chests**, keeps **watch streaks**, follows **raids**, claims **moments**
+- The two lurked streams play as a **real Twitch player** right in the dashboard
+- New follows are picked up **automatically**
 
 </td>
 <td width="50%" valign="top">
 
-### 🎁 Drops & Verlosungen
-- **Alle aktiven Drop-Kampagnen**, durchsuchbar nach Spiel, Kampagne oder Belohnung
-- **Spiele beobachten** (z. B. Minecraft): gibt es Drops, lurkt er passende Streams
-- Fortschritt, Inventar, **automatisches Claimen**
-- **Raffles im Chat**: erkennt Ansagen von StreamElements, Nightbot & Co. und tippt einmal den richtigen Befehl
-- Sagt auf Wunsch einmal **`!lurk`**, damit Streamer wissen, dass du im Hintergrund dabei bist
+### 🎁 Drops & raffles
+- **Every active drop campaign**, searchable by game, campaign or reward
+- **Watch games** (e.g. Minecraft): as soon as there are drops, it lurks matching streams
+- Progress, inventory, **automatic claiming**
+- **Chat raffles**: spots announcements from StreamElements, Nightbot & co. and types the right command once
+- Optionally says **`!lurk`** once, so streamers know you're around in the background
 
 </td>
 </tr>
 <tr>
 <td valign="top">
 
-### 🧁 Ein Dashboard zum Wohlfühlen
-- Hell und dunkel, **richtig mobil** mit Tab-Leiste unten
-- **Live-Updates** ohne Neuladen, Punkte zählen hoch
-- Ruhige Animationen, die `prefers-reduced-motion` respektieren
+### 🧁 A dashboard that feels nice
+- Light and dark, **properly mobile** with a bottom tab bar
+- **Live updates** without reloading, points count up
+- Calm animations that respect `prefers-reduced-motion`
 
 </td>
 <td valign="top">
 
-### 🔒 Deins, nicht unseres
-- **Selbst gehostet**, ein Container, SQLite, keine Cloud
-- Login per **Passwort** oder beliebigem **OIDC-Anbieter** (Authentik, Keycloak, Authelia, …)
-- Twitch-Token bleibt auf dem Server, strenge CSP, Rate-Limits
+### 🔒 Yours, not ours
+- **Self-hosted**: one container, SQLite, no cloud
+- Log in with a **password** or any **OIDC provider** (Authentik, Keycloak, Authelia, …)
+- The Twitch token stays on your server, strict CSP, rate limits
 
 </td>
 </tr>
 </table>
 
-## 📸 So sieht es aus
+## 📸 What it looks like
 
 <table>
 <tr>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/channels-dark.png"><img src="docs/screenshots/channels-light.png" alt="Kanäle mit Reihenfolge, Punkten und Verlauf"></picture><p align="center"><b>Kanäle</b>: ziehen, sortieren, Verlauf im Blick</p></td>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/drops-dark.png"><img src="docs/screenshots/drops-light.png" alt="Alle Drop-Kampagnen mit Suche und beobachteten Spielen"></picture><p align="center"><b>Drops</b>: alle Kampagnen, beobachtete Spiele</p></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/channels-dark.png"><img src="docs/screenshots/channels-light.png" alt="Channels with order, points and history"></picture><p align="center"><b>Channels</b>: drag, sort, keep an eye on the history</p></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/drops-dark.png"><img src="docs/screenshots/drops-light.png" alt="All drop campaigns with search and watched games"></picture><p align="center"><b>Drops</b>: every campaign, watched games</p></td>
 </tr>
 <tr>
-<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png"><img src="docs/screenshots/settings-light.png" alt="Einstellungen"></picture><p align="center"><b>Einstellungen</b>: Prioritäten, Raffles, <code>!lurk</code></p></td>
-<td width="50%"><img src="docs/screenshots/login-dark.png" alt="Login-Seite"><p align="center"><b>Login</b>: Passwort oder OIDC</p></td>
+<td width="50%"><picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/settings-dark.png"><img src="docs/screenshots/settings-light.png" alt="Settings"></picture><p align="center"><b>Settings</b>: priorities, raffles, <code>!lurk</code></p></td>
+<td width="50%"><img src="docs/screenshots/login-dark.png" alt="Login page"><p align="center"><b>Login</b>: password or OIDC</p></td>
 </tr>
 </table>
 
 <div align="center">
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-overview-dark.png"><img src="docs/screenshots/mobile-overview-light.png" alt="Mobil: Übersicht" width="24%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-overview-dark.png"><img src="docs/screenshots/mobile-overview-light.png" alt="Mobile: overview" width="24%"></picture>
 &nbsp;
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-channels-dark.png"><img src="docs/screenshots/mobile-channels-light.png" alt="Mobil: Kanäle" width="24%"></picture>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-channels-dark.png"><img src="docs/screenshots/mobile-channels-light.png" alt="Mobile: channels" width="24%"></picture>
 &nbsp;
-<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-drops-dark.png"><img src="docs/screenshots/mobile-drops-light.png" alt="Mobil: Drops" width="24%"></picture>
-<p><sub>Alle Kanäle, Titel und Bilder in den Screenshots sind erfunden.</sub></p>
+<picture><source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/mobile-drops-dark.png"><img src="docs/screenshots/mobile-drops-light.png" alt="Mobile: drops" width="24%"></picture>
+<p><sub>All channels, titles and images in the screenshots are made up.</sub></p>
 </div>
 
-## 🚀 Schnellstart
+## 🚀 Quick start
 
-Du brauchst einen Rechner mit Docker, der durchläuft (VPS, Raspberry Pi, NAS …). Das Image gibt es für **amd64 und arm64**.
+You need a machine with Docker that stays on (VPS, Raspberry Pi, NAS …). The image is available for **amd64 and arm64**.
 
 ```bash
 mkdir twitchlurker && cd twitchlurker
 curl -O https://raw.githubusercontent.com/Raindancer118/twitchlurker/main/compose.yml
 curl -o .env https://raw.githubusercontent.com/Raindancer118/twitchlurker/main/.env.example
 
-# Passwort setzen (mindestens 12 Zeichen)
+# set a password (at least 12 characters)
 sed -i "s/^LURKER_PASSWORD=.*/LURKER_PASSWORD=$(openssl rand -base64 18)/" .env
 grep LURKER_PASSWORD .env
 
 docker compose pull && docker compose up -d
 ```
 
-Dann:
+Then:
 
-1. Das Dashboard läuft auf `http://127.0.0.1:8080`. Mach es über einen Reverse Proxy mit HTTPS erreichbar ([siehe unten](#-hinter-einem-reverse-proxy)), oder teste lokal mit `COOKIE_SECURE=false`.
-2. Mit `admin` und dem Passwort aus `.env` anmelden.
-3. Unter **Bot & Login → Mit Twitch verbinden** bekommst du einen Code, den du auf [twitch.tv/activate](https://www.twitch.tv/activate) eingibst. Fertig, der Bot legt los.
+1. The dashboard runs on `http://127.0.0.1:8080`. Expose it through a reverse proxy with HTTPS ([see below](#-behind-a-reverse-proxy)), or try it locally with `COOKIE_SECURE=false`.
+2. Log in with `admin` and the password from `.env`.
+3. Under **Bot & Login → Connect Twitch** you get a code to enter at [twitch.tv/activate](https://www.twitch.tv/activate). Done, the bot gets going.
 
 > [!TIP]
-> Updates: `docker compose pull && docker compose up -d`. Deine Daten (Verlauf, Einstellungen, Twitch-Token) liegen im Volume `lurker-data` und bleiben erhalten.
+> Updates: `docker compose pull && docker compose up -d`. Your data (history, settings, Twitch token) lives in the `lurker-data` volume and survives updates.
 
-## ⚙️ Konfiguration
+## ⚙️ Configuration
 
-Alles läuft über die `.env` (Vorlage: [`.env.example`](.env.example)).
+Everything goes through `.env` (template: [`.env.example`](.env.example)).
 
-| Variable | Standard | Wofür |
+| Variable | Default | What for |
 |---|---|---|
-| `LURKER_AUTH_MODE` | `password` | `password` (ein Konto) oder `oidc` (beliebiger OpenID-Connect-Anbieter) |
-| `LURKER_USERNAME` / `LURKER_PASSWORD` | `admin` / – | Login im Passwort-Modus, Passwort mind. 12 Zeichen |
-| `OIDC_ISSUER_URI` | – | Issuer deines Anbieters, Endpunkte werden beim ersten Login ermittelt |
-| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | – | Client beim Anbieter, Redirect-URI: `https://<deine-domain>/login/oauth2/code/oidc` |
-| `OIDC_AUTHORIZATION_URI`, `OIDC_TOKEN_URI`, `OIDC_USERINFO_URI`, `OIDC_JWKS_URI` | – | optional statt Discovery, dann startet der Bot auch, wenn der Anbieter gerade weg ist |
-| `LURKER_ALLOWED_EMAILS` / `LURKER_ALLOWED_GROUPS` | – | wer rein darf (OIDC). Leer heißt: niemand |
-| `OIDC_GROUPS_CLAIM` | `groups` | Claim mit den Gruppennamen |
-| `LURKER_PORT` / `LURKER_BIND` | `8080` / `127.0.0.1` | Port und Adresse auf dem Host |
-| `TRUSTED_PROXIES` | Loopback + private Netze | Regex der Proxys, deren `X-Forwarded-*` gelten |
-| `COOKIE_SECURE` | `true` | nur für HTTP-Tests ohne Proxy auf `false` |
-| `LURKER_TIMEZONE` | `Europe/Berlin` | wann „heute“ anfängt |
-| `LURKER_VERSION` | `latest` | Image-Version festnageln, z. B. `0.7.0` |
+| `LURKER_AUTH_MODE` | `password` | `password` (single account) or `oidc` (any OpenID Connect provider) |
+| `LURKER_USERNAME` / `LURKER_PASSWORD` | `admin` / – | login in password mode, password at least 12 characters |
+| `OIDC_ISSUER_URI` | – | your provider's issuer, endpoints are discovered on the first login |
+| `OIDC_CLIENT_ID` / `OIDC_CLIENT_SECRET` | – | client at your provider, redirect URI: `https://<your-domain>/login/oauth2/code/oidc` |
+| `OIDC_AUTHORIZATION_URI`, `OIDC_TOKEN_URI`, `OIDC_USERINFO_URI`, `OIDC_JWKS_URI` | – | optional instead of discovery, so the bot starts even while the provider is down |
+| `LURKER_ALLOWED_EMAILS` / `LURKER_ALLOWED_GROUPS` | – | who may log in (OIDC). Empty means nobody |
+| `OIDC_GROUPS_CLAIM` | `groups` | claim holding the group names |
+| `LURKER_PORT` / `LURKER_BIND` | `8080` / `127.0.0.1` | port and address on the host |
+| `TRUSTED_PROXIES` | loopback + private networks | regex of proxies whose `X-Forwarded-*` headers are trusted |
+| `COOKIE_SECURE` | `true` | set to `false` only for plain-HTTP tests without a proxy |
+| `LURKER_TIMEZONE` | `UTC` | when "today" starts, e.g. `Europe/Berlin` |
+| `LURKER_VERSION` | `latest` | pin an image version, e.g. `0.8.0` |
 
-Alles andere (Prioritäten, Slots, Raffles, beobachtete Spiele, `!lurk`) stellst du bequem im Dashboard ein.
+Everything else (priorities, slots, raffles, watched games, `!lurk`) is set comfortably in the dashboard.
 
-### 🔐 Login per OIDC
+### 🔐 Login via OIDC
 
 ```dotenv
 LURKER_AUTH_MODE=oidc
@@ -153,11 +153,11 @@ OIDC_CLIENT_SECRET=…
 LURKER_ALLOWED_GROUPS=twitchlurker
 ```
 
-Beim Anbieter eine Web-Anwendung (Authorization Code) anlegen, Redirect-URI `https://<deine-domain>/login/oauth2/code/oidc`, Scopes `openid profile email`. Gruppen kommen aus dem `groups`-Claim, E-Mails zählen nur mit `email_verified`.
+Create a web application (authorization code flow) at your provider with redirect URI `https://<your-domain>/login/oauth2/code/oidc` and scopes `openid profile email`. Groups come from the `groups` claim; e-mail addresses only count with `email_verified`.
 
-### 🌐 Hinter einem Reverse Proxy
+### 🌐 Behind a reverse proxy
 
-Der Live-Stream des Dashboards (Server-Sent Events unter `/api/live`) darf nicht gepuffert werden. Für nginx:
+The dashboard's live stream (server-sent events at `/api/live`) must not be buffered. For nginx:
 
 ```nginx
 location / {
@@ -178,57 +178,57 @@ location /api/live {
 }
 ```
 
-Läuft der Proxy auf einem anderen Rechner und kommt über eine öffentliche IP, trag sie in `TRUSTED_PROXIES` ein, sonst stimmen die Redirect-URIs nicht.
+If the proxy runs on another machine and connects from a public IP, add it to `TRUSTED_PROXIES`, otherwise the redirect URIs come out wrong.
 
-## 🧠 Wie es funktioniert
+## 🧠 How it works
 
 ```mermaid
 flowchart LR
-    You([Du im Browser]) -- HTTPS --> Proxy[Reverse Proxy]
+    You([You in the browser]) -- HTTPS --> Proxy[Reverse proxy]
     Proxy --> App
 
     subgraph Container
       App[Spring Boot<br/>Dashboard · API · Login]
-      Runner[Python-Runner<br/>Twitch-Channel-Points-Miner-v2]
-      Chat[Chat-Watcher<br/>Raffles · !lurk]
+      Runner[Python runner<br/>Twitch-Channel-Points-Miner-v2]
+      Chat[Chat watcher<br/>Raffles · !lurk]
       DB[(SQLite)]
-      App <-- JSON-Zeilen über stdin/stdout --> Runner
+      App <-- JSON lines over stdin/stdout --> Runner
       App --> Chat
       App --> DB
     end
 
-    Runner -- GQL · PubSub · Watch-Events --> Twitch[(Twitch)]
-    Chat -- IRC über WebSocket --> Twitch
-    Runner -. Drop-Liste .-> Community[(Community-Drop-Liste)]
+    Runner -- GQL · PubSub · watch events --> Twitch[(Twitch)]
+    Chat -- IRC over WebSocket --> Twitch
+    Runner -. drop list .-> Community[(Community drop list)]
 ```
 
-- **Java/Spring Boot** hält Dashboard, API, Login, Verlauf (SQLite) und den Chat-Watcher. Der **Python-Runner** ist [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) mit ein paar Haken: feste Slots, Reihenfolge und Drop-Suche wirken live.
-- Ein **einziger Twitch-Token** (Device-Login, Scopes inkl. `chat:edit`) reicht für Punkte, Drops und Chat.
-- Twitch zeigt die Liste aller Drop-Kampagnen nur noch integritätsgeschützten Clients. Der Katalog kommt deshalb aus der öffentlichen Community-Liste [twitch-drops-api.sunkwi.com](https://twitch-drops-api.sunkwi.com/drops) (änderbar per `LURKER_COMMUNITY_DROPS_URL`). Beobachtete Spiele sucht der Bot unabhängig davon direkt im Twitch-Verzeichnis nach Streams mit aktivierten Drops.
+- **Java/Spring Boot** runs the dashboard, API, login, history (SQLite) and the chat watcher. The **Python runner** is [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) with a few hooks, so pinned slots, order and drop scouting apply live.
+- A **single Twitch token** (device login, scopes incl. `chat:edit`) covers points, drops and chat.
+- Twitch only shows the full list of drop campaigns to integrity-protected clients. The catalogue therefore comes from the public community list [twitch-drops-api.sunkwi.com](https://twitch-drops-api.sunkwi.com/drops) (configurable via `LURKER_COMMUNITY_DROPS_URL`). Independently of that, the bot looks up watched games directly in the Twitch directory for streams with drops enabled.
 
-## 🛠️ Entwicklung
+## 🛠️ Development
 
 ```bash
-./mvnw verify                                         # Java-Tests inkl. Startup-Test
-pip install -r runner/requirements.txt pytest pyflakes  # siehe Dockerfile für das Miner-Paket
+./mvnw verify                                           # Java tests incl. startup test
+pip install -r runner/requirements.txt pytest pyflakes  # see the Dockerfile for the miner package
 python -m pyflakes runner/*.py && python -m pytest runner/tests
-cd e2e && npm ci && npx playwright install chromium && npx playwright test   # E2E gegen das echte Jar mit Fake-Miner
+cd e2e && npm ci && npx playwright install chromium && npx playwright test   # E2E against the real jar with a fake miner
 ```
 
-Screenshots für dieses README neu erzeugen (erfundene Daten, generierte Bilder):
+Regenerate the screenshots in this README (made-up data, generated images):
 `cd e2e && TL_SHOWCASE=1 TL_FAKE_RUNNER=showcase_miner.py npx playwright test readme-shots`
 
-**Eigene Instanz mit Auto-Deploy:** Die CI testet jeden Push. Deployen tut sie nur, wenn im Repo die Variable `DEPLOY_ENABLED=true` und die Secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` gesetzt sind (optional `DEPLOY_HEALTH_URL`). Dann baut sie per SSH auf dem Server, testet den Runner im neuen Image und schaltet erst danach um. Releases (`git tag X.Y.Z && git push origin X.Y.Z`) veröffentlichen das Multi-Arch-Image auf GHCR.
+**Your own instance with auto-deploy:** CI tests every push. It only deploys if the repo has the variable `DEPLOY_ENABLED=true` and the secrets `DEPLOY_HOST`, `DEPLOY_USER`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (optionally `DEPLOY_HEALTH_URL`). It then builds on the server over SSH, smoke-tests the runner in the new image and only switches over afterwards. Releases (`git tag X.Y.Z && git push origin X.Y.Z`) publish the multi-arch image to GHCR.
 
-## ⚠️ Gut zu wissen
+## ⚠️ Good to know
 
-- Automatisiertes Zuschauen verstößt vermutlich gegen die Nutzungsbedingungen von Twitch. Du nutzt das auf eigenes Risiko für deinen eigenen Account. Kein offizielles Twitch-Projekt.
-- Twitch zählt Kanalpunkte und Drops für höchstens **zwei Kanäle gleichzeitig**.
-- Für Raffles braucht der Token `chat:edit`. Fehlt es, sagt dir das Dashboard, dass du Twitch einmal neu verbinden sollst.
-- Viele Raffles verlangen, dass du dem Kanal folgst oder ein Abo hast. Die Ablehnung von Twitch landet im Raffle-Log.
+- Automated watching most likely violates Twitch's terms of service. Use it at your own risk, for your own account. Not an official Twitch project.
+- Twitch counts channel points and drops for at most **two channels at a time**.
+- Raffles need the `chat:edit` scope. If it's missing, the dashboard tells you to reconnect Twitch once.
+- Many raffles require you to follow or subscribe to the channel. Twitch's rejection ends up in the raffle log.
 
-## 💜 Dank & Lizenz
+## 💜 Credits & license
 
-Gebaut auf [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) (GPL-3.0), mit GQL-Wissen aus dem [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) und der Drop-Liste von [twitch-drops-api.sunkwi.com](https://twitch-drops-api.sunkwi.com).
+Built on [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) (GPL-3.0), with GQL knowledge from [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) and the drop list from [twitch-drops-api.sunkwi.com](https://twitch-drops-api.sunkwi.com).
 
-[**Rain's Do Whatever The Fuck You Want With It License**](LICENSE): mach damit, was du willst. `runner/lurker_watch.py` enthält Code aus TCPM und bleibt GPL-3.0-or-later.
+[**Rain's Do Whatever The Fuck You Want With It License**](LICENSE): do whatever you want with it. `runner/lurker_watch.py` contains code from TCPM and stays GPL-3.0-or-later.

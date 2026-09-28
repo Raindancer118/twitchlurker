@@ -29,7 +29,7 @@ public class SettingsStore {
                     .without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
                     .readValue(file.toFile());
         } catch (RuntimeException e) {
-            throw new IllegalStateException("settings.json ist beschädigt: " + file, e);
+            throw new IllegalStateException("settings.json is corrupt: " + file, e);
         }
     }
 

@@ -223,7 +223,7 @@ public class ApiController {
 
     private static String requireLogin(String login) {
         if (!LOGIN.matcher(login).matches()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Ungültiger Twitch-Name");
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid Twitch name");
         }
         return login;
     }

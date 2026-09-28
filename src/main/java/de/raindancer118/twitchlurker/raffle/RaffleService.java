@@ -71,10 +71,10 @@ public class RaffleService {
         }
         var t = token.get();
         if (t.isEmpty()) {
-            return "Kein gültiger Twitch-Login.";
+            return "No valid Twitch login.";
         }
         if (!t.get().canChat()) {
-            return "Der Twitch-Token hat kein chat:edit. Bitte Twitch einmal neu verbinden.";
+            return "The Twitch token lacks chat:edit. Please reconnect Twitch once.";
         }
         return null;
     }
@@ -169,7 +169,7 @@ public class RaffleService {
 
     private void fire(long id, String channel, String command) {
         if (!settings.get().raffle().enabled() || !chat.isConnected() || !chat.channels().contains(channel)) {
-            raffles.update(id, RaffleEntry.Status.SKIPPED, "Kanal nicht mehr live oder Chat getrennt", null);
+            raffles.update(id, RaffleEntry.Status.SKIPPED, "Channel no longer live or chat disconnected", null);
             return;
         }
         chat.send(channel, command);

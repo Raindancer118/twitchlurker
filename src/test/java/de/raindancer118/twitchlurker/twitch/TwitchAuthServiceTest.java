@@ -89,7 +89,7 @@ class TwitchAuthServiceTest {
         service.startDeviceLogin();
         assertThat(service.pollOnce()).isTrue();
         assertThat(service.status().state()).isEqualTo(TwitchAuthStatus.State.NONE);
-        assertThat(service.status().error()).contains("abgelaufen");
+        assertThat(service.status().error()).contains("expired");
     }
 
     @Test

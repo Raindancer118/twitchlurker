@@ -16,10 +16,10 @@ def out(o):
 
 CHANNELS = [
     # login, online, game, title, viewers, streak, drops
-    ("lunaplays", True, "Minecraft", "Wir bauen eine Stadt auf Wolken ☁️ Tag 42", 8400, True, True),
-    ("pixelbaer", True, "Stardew Valley", "Gemütlicher Farm-Sonntag mit Chat-Wünschen", 2150, False, False),
-    ("nordlicht_tv", True, "Just Chatting", "Kaffee, Kekse und eure Geschichten", 5300, False, False),
-    ("retrohannah", True, "Hollow Knight", "Steel Soul Run: diesmal wirklich", 960, False, False),
+    ("lunaplays", True, "Minecraft", "Building a city on clouds ☁️ day 42", 8400, True, True),
+    ("pixelbaer", True, "Stardew Valley", "Cozy farm Sunday, chat picks the crops", 2150, False, False),
+    ("nordlicht_tv", True, "Just Chatting", "Coffee, cookies and your stories", 5300, False, False),
+    ("retrohannah", True, "Hollow Knight", "Steel Soul run: this time for real", 960, False, False),
     ("bytebandit", False, None, None, 0, False, False),
     ("kaffeeklatsch", False, None, None, 0, False, False),
 ]
@@ -31,20 +31,20 @@ watch = [g.lower() for g in (config.get("dropScout") or {}).get("games", [])]
 
 def catalogue():
     items = [
-        {"id": "mc", "name": "Minecraft Live: Himmelsinseln", "game": "Minecraft", "gameId": "27471", "image": f"{IMG}/box-minecraft.png",
+        {"id": "mc", "name": "Minecraft Live: Sky Islands", "game": "Minecraft", "gameId": "27471", "image": f"{IMG}/box-minecraft.png",
          "status": "ACTIVE", "startAt": "2026-09-26T16:00:00Z", "endAt": "2026-10-04T22:00:00Z", "linked": True, "linkUrl": None,
-         "channels": [], "rewards": [{"name": "Wolken-Umhang", "image": f"{IMG}/reward-1.png", "minutes": 60},
-                                     {"name": "Sternenstaub-Emote", "image": f"{IMG}/reward-2.png", "minutes": 120}]},
-        {"id": "sv", "name": "Stardew Valley Erntefest", "game": "Stardew Valley", "gameId": "490744", "image": f"{IMG}/box-stardew.png",
+         "channels": [], "rewards": [{"name": "Cloud Cape", "image": f"{IMG}/reward-1.png", "minutes": 60},
+                                     {"name": "Stardust Emote", "image": f"{IMG}/reward-2.png", "minutes": 120}]},
+        {"id": "sv", "name": "Stardew Valley Harvest Festival", "game": "Stardew Valley", "gameId": "490744", "image": f"{IMG}/box-stardew.png",
          "status": "ACTIVE", "startAt": "2026-09-25T00:00:00Z", "endAt": "2026-09-30T23:59:00Z", "linked": None, "linkUrl": "https://example.org/link",
-         "channels": ["pixelbaer", "kaffeeklatsch"], "rewards": [{"name": "Kürbis-Hut", "image": f"{IMG}/reward-3.png", "minutes": 30}]},
+         "channels": ["pixelbaer", "kaffeeklatsch"], "rewards": [{"name": "Pumpkin Hat", "image": f"{IMG}/reward-3.png", "minutes": 30}]},
         {"id": "rs", "name": "Rust Garage Door Drop", "game": "Rust", "gameId": "263490", "image": f"{IMG}/box-rust.png",
          "status": "ACTIVE", "startAt": "2026-09-24T00:00:00Z", "endAt": "2026-10-08T00:00:00Z", "linked": None, "linkUrl": "https://example.org/link",
          "channels": [], "rewards": [{"name": "Neon Garage Door", "image": f"{IMG}/reward-4.png", "minutes": 90},
                                      {"name": "Neon Hazmat", "image": f"{IMG}/reward-1.png", "minutes": 180}]},
         {"id": "hk", "name": "Hollow Knight Speedrun Week", "game": "Hollow Knight", "gameId": "490147", "image": f"{IMG}/box-hollow.png",
          "status": "ACTIVE", "startAt": "2026-09-27T00:00:00Z", "endAt": "2026-10-03T00:00:00Z", "linked": False, "linkUrl": "https://example.org/link",
-         "channels": [], "rewards": [{"name": "Charm-Profilbild", "image": f"{IMG}/reward-2.png", "minutes": 45}]},
+         "channels": [], "rewards": [{"name": "Charm Avatar", "image": f"{IMG}/reward-2.png", "minutes": 45}]},
     ]
     for c in items:
         c["watched"] = c["game"].lower() in watch
@@ -78,16 +78,16 @@ for login, amount, reason in [("lunaplays", 450, "WATCH_STREAK"), ("nordlicht_tv
 out({"t": "event", "event": "STREAMER_ONLINE", "msg": "Streamer(username=retrohannah, channel_id=1, channel_points=7k) is Online!"})
 out({"t": "event", "event": "RAID", "login": "nordlicht_tv", "target": "pixelbaer"})
 out({"t": "event", "event": "BONUS", "login": "lunaplays"})
-out({"t": "event", "event": "DROP", "name": "cape", "benefit": "Wolken-Umhang"})
+out({"t": "event", "event": "DROP", "name": "cape", "benefit": "Cloud Cape"})
 out({"t": "event", "event": "BONUS", "login": "nordlicht_tv"})
-out({"t": "drops", "campaigns": [{"id": "mc", "name": "Minecraft Live: Himmelsinseln", "game": "Minecraft", "image": f"{IMG}/box-minecraft.png",
+out({"t": "drops", "campaigns": [{"id": "mc", "name": "Minecraft Live: Sky Islands", "game": "Minecraft", "image": f"{IMG}/box-minecraft.png",
       "endsAt": "2026-10-04T22:00:00Z", "linked": True, "drops": [
-          {"id": "d1", "name": "Wolken-Umhang", "image": f"{IMG}/reward-1.png", "required": 60, "watched": 60, "claimed": True},
-          {"id": "d2", "name": "Sternenstaub-Emote", "image": f"{IMG}/reward-2.png", "required": 120, "watched": 83, "claimed": False}]}],
-     "claimed": [{"id": "b1", "name": "Wolken-Umhang", "image": f"{IMG}/reward-1.png", "at": "2026-09-28T09:12:00Z", "game": "Minecraft"},
+          {"id": "d1", "name": "Cloud Cape", "image": f"{IMG}/reward-1.png", "required": 60, "watched": 60, "claimed": True},
+          {"id": "d2", "name": "Stardust Emote", "image": f"{IMG}/reward-2.png", "required": 120, "watched": 83, "claimed": False}]}],
+     "claimed": [{"id": "b1", "name": "Cloud Cape", "image": f"{IMG}/reward-1.png", "at": "2026-09-28T09:12:00Z", "game": "Minecraft"},
                  {"id": "b2", "name": "Neon Garage Door", "image": f"{IMG}/reward-4.png", "at": "2026-09-26T19:40:00Z", "game": "Rust"}]})
 out({"t": "campaigns", "campaigns": catalogue(), "access": "community"})
-for msg in ["Loading data for 6 streamers. Please wait...", "Drop-Katalog: 4 Kampagnen (community), beobachtet: Minecraft",
+for msg in ["Loading data for 6 streamers. Please wait...", "Drop catalogue: 4 campaigns (community), watching: Minecraft",
             "+450 → Streamer(username=lunaplays) - Reason: WATCH_STREAK.", "Joining raid from nordlicht_tv to pixelbaer!"]:
     out({"t": "log", "level": "INFO", "logger": "runner", "msg": msg})
 threading.Thread(target=state_loop, daemon=True).start()

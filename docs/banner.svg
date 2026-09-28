@@ -1,4 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-label="twitchlurker – lurkt rund um die Uhr auf Twitch und sammelt deine Belohnungen">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="340" viewBox="0 0 1280 340" role="img" aria-label="twitchlurker – lurks on Twitch around the clock and collects your rewards">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0" stop-color="#1a1025"/>
@@ -44,8 +44,8 @@
     </g>
 
     <text x="290" y="160" fill="#ffffff" font-size="84" font-weight="900" letter-spacing="-2">twitch<tspan font-weight="500" opacity="0.85">lurker</tspan></text>
-    <text x="294" y="212" fill="#e8dcff" font-size="28" font-weight="700">Lurkt rund um die Uhr. Nimmt alles mit.</text>
-    <text x="294" y="252" fill="#cdb8ff" font-size="21" font-weight="600">Kanalpunkte · Bonus-Truhen · Streaks · Raids · Drops · Raffles · selbst gehostet</text>
+    <text x="294" y="212" fill="#e8dcff" font-size="28" font-weight="700">Lurks around the clock. Collects everything.</text>
+    <text x="294" y="252" fill="#cdb8ff" font-size="21" font-weight="600">Channel points · Bonus chests · Streaks · Raids · Drops · Raffles · Self-hosted</text>
 
     <!-- live chip -->
     <g transform="translate(1030 70)">

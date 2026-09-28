@@ -13,7 +13,7 @@ public record LurkerProperties(Path dataDir, String pythonCommand, Path runnerSc
     public LurkerProperties {
         allowedEmails = allowedEmails == null ? List.of() : allowedEmails.stream().filter(s -> !s.isBlank()).map(String::strip).toList();
         allowedGroups = allowedGroups == null ? List.of() : allowedGroups.stream().filter(s -> !s.isBlank()).map(String::strip).toList();
-        zone = zone == null ? ZoneId.of("Europe/Berlin") : zone;
+        zone = zone == null ? ZoneId.of("UTC") : zone;
         twitchIdBase = twitchIdBase == null ? "https://id.twitch.tv" : twitchIdBase;
     }
 }

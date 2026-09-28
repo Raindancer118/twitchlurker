@@ -102,7 +102,7 @@ public class TwitchAuthService {
             return true;
         }
         if (Instant.now().isAfter(p.expiresAt())) {
-            fail("Der Code ist abgelaufen. Bitte neu starten.");
+            fail("The code expired. Please start again.");
             return true;
         }
         var form = new LinkedMultiValueMap<String, String>();
@@ -115,7 +115,7 @@ public class TwitchAuthService {
             String accessToken = (String) body.get("access_token");
             var validated = validate(accessToken);
             if (validated.isEmpty()) {
-                fail("Twitch hat den neuen Token nicht bestätigt.");
+                fail("Twitch did not confirm the new token.");
                 return true;
             }
             pending = null;
@@ -132,9 +132,9 @@ public class TwitchAuthService {
                 return false;
             }
             if (message.contains("expired_token")) {
-                fail("Der Code ist abgelaufen. Bitte neu starten.");
+                fail("The code expired. Please start again.");
             } else {
-                fail("Twitch-Login abgelehnt: " + message);
+                fail("Twitch login rejected: " + message);
             }
             return true;
         } catch (RestClientException e) {
@@ -173,7 +173,7 @@ public class TwitchAuthService {
             if (v.isEmpty()) {
                 if (!expired) {
                     expired = true;
-                    lastError = "Twitch-Token abgelaufen oder widerrufen. Bitte neu einloggen.";
+                    lastError = "Twitch token expired or revoked. Please sign in again.";
                     events.publishEvent(new TokenChanged(Optional.empty()));
                 }
             } else if (expired || !v.get().scopes().equals(t.scopes()) || !v.get().login().equals(t.login())) {

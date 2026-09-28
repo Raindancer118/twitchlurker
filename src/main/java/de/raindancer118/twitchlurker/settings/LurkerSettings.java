@@ -139,47 +139,47 @@ public record LurkerSettings(
 
     public List<String> validate() {
         var errors = new ArrayList<String>();
-        checkLogins("Kanäle", streamers, errors);
+        checkLogins("Channels", streamers, errors);
         checkLogins("Blacklist", blacklist, errors);
         checkLogins("Bots", raffle.bots(), errors);
-        checkLogins("Raffle-Ausnahmen", raffle.disabledChannels(), errors);
-        checkLogins("Reihenfolge", order, errors);
+        checkLogins("Raffle exceptions", raffle.disabledChannels(), errors);
+        checkLogins("Order", order, errors);
         checkLogins("Slots", slots.stream().filter(java.util.Objects::nonNull).toList(), errors);
-        priority.stream().filter(p -> !PRIORITIES.contains(p)).forEach(p -> errors.add("Unbekannte Priorität: " + p));
+        priority.stream().filter(p -> !PRIORITIES.contains(p)).forEach(p -> errors.add("Unknown priority: " + p));
         raffle.joinCommands().stream().filter(c -> !COMMAND.matcher(c).matches())
-                .forEach(c -> errors.add("Ungültiger Befehl: " + c));
+                .forEach(c -> errors.add("Invalid command: " + c));
         if (raffle.joinCommands().size() > 20) {
-            errors.add("Höchstens 20 Join-Befehle");
+            errors.add("At most 20 join commands");
         }
         if (raffle.minDelaySeconds() < 0 || raffle.maxDelaySeconds() > 300 || raffle.minDelaySeconds() > raffle.maxDelaySeconds()) {
-            errors.add("Verzögerung muss zwischen 0 und 300 s liegen, Minimum ≤ Maximum");
+            errors.add("Delay must be between 0 and 300 s, minimum ≤ maximum");
         }
         if (raffle.cooldownSeconds() < 30 || raffle.cooldownSeconds() > 86_400) {
-            errors.add("Cooldown muss zwischen 30 s und 24 h liegen");
+            errors.add("Cooldown must be between 30 s and 24 h");
         }
         if (lurk.message().length() > 100 || lurk.message().chars().anyMatch(Character::isISOControl)) {
-            errors.add("Lurk-Nachricht: höchstens 100 Zeichen, eine Zeile");
+            errors.add("Lurk message: at most 100 characters, one line");
         }
         if (lurk.repeatMinutes() != 0 && (lurk.repeatMinutes() < 30 || lurk.repeatMinutes() > 1440)) {
-            errors.add("Wiederholung: 0 (einmal pro Stream) oder 30 bis 1440 Minuten");
+            errors.add("Repeat: 0 (once per stream) or 30 to 1440 minutes");
         }
         if (dropScout.games().size() > 40) {
-            errors.add("Höchstens 40 beobachtete Spiele");
+            errors.add("At most 40 watched games");
         }
         dropScout.games().stream().filter(g -> g.length() > 80 || g.chars().anyMatch(Character::isISOControl))
-                .forEach(g -> errors.add("Ungültiger Spielname: „" + (g.length() > 30 ? g.substring(0, 30) + "…" : g) + "“"));
+                .forEach(g -> errors.add("Invalid game name: “" + (g.length() > 30 ? g.substring(0, 30) + "…" : g) + "”"));
         if (dropScout.channelsPerGame() < 0 || dropScout.channelsPerGame() > 5) {
-            errors.add("Drop-Kanäle pro Spiel: 0 bis 5");
+            errors.add("Drop channels per game: 0 to 5");
         }
         return errors;
     }
 
     private static void checkLogins(String label, List<String> logins, List<String> errors) {
         if (logins.size() > 500) {
-            errors.add(label + ": höchstens 500 Einträge");
+            errors.add(label + ": at most 500 entries");
         }
         logins.stream().filter(l -> !LOGIN.matcher(l).matches())
-                .forEach(l -> errors.add(label + ": ungültiger Twitch-Name „" + l + "“"));
+                .forEach(l -> errors.add(label + ": invalid Twitch name “" + l + "”"));
     }
 
     public LurkerSettings withStreamers(List<String> v) {

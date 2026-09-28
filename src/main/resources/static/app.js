@@ -2,12 +2,12 @@
 
 const $ = (sel, root = document) => root.querySelector(sel);
 const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
-const nf = new Intl.NumberFormat('de-DE');
+const nf = new Intl.NumberFormat();
 const fmt = n => nf.format(Math.round(n || 0));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const time = iso => iso ? new Date(iso).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : '';
-const dateTime = iso => iso ? new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) + ' Uhr' : '–';
-const SCREENS = { overview: 'Übersicht', channels: 'Kanäle', drops: 'Drops', raffles: 'Raffles', bot: 'Bot & Login', settings: 'Einstellungen' };
+const time = iso => iso ? new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
+const dateTime = iso => iso ? new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
+const SCREENS = { overview: 'Overview', channels: 'Channels', drops: 'Drops', raffles: 'Raffles', bot: 'Bot & Login', settings: 'Settings' };
 
 const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)');
 const bootTime = performance.now();
@@ -101,11 +101,11 @@ async function api(path, { method = 'GET', body } = {}) {
   const res = await fetch(path, { method, headers, credentials: 'same-origin', body: body === undefined ? undefined : JSON.stringify(body) });
   if (res.status === 401) {
     location.href = '/';
-    throw new Error('Nicht angemeldet');
+    throw new Error('Not signed in');
   }
   const data = res.headers.get('content-type')?.includes('json') ? await res.json() : null;
   if (!res.ok) {
-    const err = new Error(data?.errors?.join(' · ') || data?.detail || data?.error || `Fehler ${res.status}`);
+    const err = new Error(data?.errors?.join(' · ') || data?.detail || data?.error || `Error ${res.status}`);
     err.data = data;
     throw err;
   }
@@ -163,20 +163,20 @@ function initTheme() {
 
 // ---------- Shared bits ----------
 const BOT_TEXT = {
-  RUNNING: ['Bot läuft', 'Läuft'],
-  STARTING: ['Bot startet', 'Startet …'],
-  BACKOFF: ['Bot startet neu', 'Kurze Pause'],
-  STOPPED: ['Bot pausiert', 'Pausiert'],
-  NEEDS_LOGIN: ['Twitch fehlt', 'Wartet auf Twitch'],
+  RUNNING: ['Bot running', 'Running'],
+  STARTING: ['Bot starting', 'Starting …'],
+  BACKOFF: ['Bot restarting', 'Short break'],
+  STOPPED: ['Bot paused', 'Paused'],
+  NEEDS_LOGIN: ['Twitch missing', 'Waiting for Twitch'],
 };
 
 function since(iso) {
   if (!iso) return '';
   const mins = Math.max(0, Math.round((Date.now() - new Date(iso)) / 60000));
-  if (mins < 60) return `Seit ${mins} Min.`;
+  if (mins < 60) return `For ${mins} min`;
   const h = Math.floor(mins / 60);
-  if (h < 48) return `Seit ${h} Std., ${mins % 60} Min.`;
-  return `Seit ${Math.floor(h / 24)} Tagen, ${h % 24} Std.`;
+  if (h < 48) return `For ${h} h ${mins % 60} min`;
+  return `For ${Math.floor(h / 24)} days, ${h % 24} h`;
 }
 
 function renderBotMini(bot) {
@@ -194,8 +194,8 @@ function renderBanner(twitch) {
     return;
   }
   $('#state-banner-text').innerHTML = twitch.state === 'EXPIRED'
-    ? '<strong>Twitch-Token abgelaufen.</strong> Einmal neu verbinden, dein Loot bleibt erhalten.'
-    : '<strong>Noch kein Twitch-Account verbunden.</strong> Ohne ihn sammelt der Bot nichts.';
+    ? '<strong>Twitch token expired.</strong> Reconnect once, your loot is safe.'
+    : '<strong>No Twitch account connected yet.</strong> Without it the bot collects nothing.';
   banner.hidden = false;
 }
 
@@ -222,19 +222,19 @@ function eventView(e) {
   const who = esc(e.login || '');
   switch (e.type) {
     case 'POINTS': {
-      const titles = { WATCH: 'Watch-Time gutgeschrieben', CLAIM: 'Bonus eingesammelt', WATCH_STREAK: 'Watch-Streak gesichert', RAID: 'Raid-Bonus' };
-      return ['+', titles[e.detail] || 'Kanalpunkte', `${who} · +${fmt(e.amount)} Kanalpunkte`];
+      const titles = { WATCH: 'Watch time credited', CLAIM: 'Bonus collected', WATCH_STREAK: 'Watch streak kept', RAID: 'Raid bonus' };
+      return ['+', titles[e.detail] || 'Channel points', `${who} · +${fmt(e.amount)} points`];
     }
-    case 'BONUS': return ['+', 'Bonus-Truhe geöffnet', who];
-    case 'MOMENT': return ['✧', 'Moment mitgenommen', who];
-    case 'RAID': return ['↪', 'Beim Raid mitgezogen', `${who} → ${esc(e.detail || '?')}`];
-    case 'DROP': return ['◇', 'Drop geclaimt', esc(e.detail || '')];
-    case 'ADDED': return ['↗', e.detail === 'drops' ? 'Für Drops aufgenommen' : e.detail === 'follow' ? 'Neu gefolgt' : 'Kanal aufgenommen', who];
-    case 'REMOVED': return ['↘', 'Nicht mehr gefolgt', who];
-    case 'LURK': return ['~', 'Im Chat Bescheid gesagt', who];
-    case 'ONLINE': return ['●', 'Ist jetzt live', who];
-    case 'RAFFLE': return ['✓', 'Bei der Verlosung dabei', `${who} · ${esc(e.detail || '')} gesendet`];
-    case 'RAFFLE_WON': return ['★', 'Verlosung gewonnen', `${who} · ${esc(e.detail || '')}`];
+    case 'BONUS': return ['+', 'Bonus chest opened', who];
+    case 'MOMENT': return ['✧', 'Moment claimed', who];
+    case 'RAID': return ['↪', 'Followed a raid', `${who} → ${esc(e.detail || '?')}`];
+    case 'DROP': return ['◇', 'Drop claimed', esc(e.detail || '')];
+    case 'ADDED': return ['↗', e.detail === 'drops' ? 'Added for drops' : e.detail === 'follow' ? 'New follow' : 'Channel added', who];
+    case 'REMOVED': return ['↘', 'Unfollowed', who];
+    case 'LURK': return ['~', 'Said hi in chat', who];
+    case 'ONLINE': return ['●', 'Went live', who];
+    case 'RAFFLE': return ['✓', 'Joined a raffle', `${who} · sent ${esc(e.detail || '')}`];
+    case 'RAFFLE_WON': return ['★', 'Won a raffle', `${who} · ${esc(e.detail || '')}`];
     default: return ['·', esc(e.type), who];
   }
 }
@@ -253,9 +253,9 @@ const playing = new Set();
 function slotShell(index) {
   const el = document.createElement('article');
   el.className = 'panel slot';
-  el.innerHTML = `<div class="slot-head"><p class="eyebrow"><svg class="pin-icon" hidden><use href="#i-pin"/></svg><span class="slot-label"></span></p><label class="visually-hidden" for="slot-select-${index}">Platz ${index + 1} zuweisen</label><select id="slot-select-${index}" data-slot="${index}"></select></div>
+  el.innerHTML = `<div class="slot-head"><p class="eyebrow"><svg class="pin-icon" hidden><use href="#i-pin"/></svg><span class="slot-label"></span></p><label class="visually-hidden" for="slot-select-${index}">Assign slot ${index + 1}</label><select id="slot-select-${index}" data-slot="${index}"></select></div>
 <div class="slot-media"></div>
-<div class="slot-body"><div class="slot-identity"><span class="avatar"></span><div><h3></h3><p></p></div><button class="icon-button" type="button" aria-label="Kanal öffnen"><svg><use href="#i-arrow"/></svg></button></div><div class="slot-meta"></div><p class="slot-note" hidden></p><div class="slot-foot"><span class="meta slot-tags"></span><strong></strong></div></div>`;
+<div class="slot-body"><div class="slot-identity"><span class="avatar"></span><div><h3></h3><p></p></div><button class="icon-button" type="button" aria-label="Open channel"><svg><use href="#i-arrow"/></svg></button></div><div class="slot-meta"></div><p class="slot-note" hidden></p><div class="slot-foot"><span class="meta slot-tags"></span><strong></strong></div></div>`;
   el.querySelector('select').addEventListener('change', ev => assignSlot(index, ev.target.value || null));
   return el;
 }
@@ -265,15 +265,15 @@ function renderSlotMedia(media, login) {
   media.dataset.login = login || '';
   if (!login) {
     media.dataset.mode = 'none';
-    media.innerHTML = '<p class="slot-empty-media">Frei. Sobald jemand live ist, lurkt der Bot hier.</p>';
+    media.innerHTML = '<p class="slot-empty-media">Free. As soon as someone is live, the bot lurks here.</p>';
     return;
   }
   const video = videoWanted() || playing.has(login);
   media.dataset.mode = video ? 'video' : 'image';
   if (video) {
-    media.innerHTML = `<span class="live-tag">LIVE</span><iframe src="${esc(playerUrl(login))}" title="Stream von ${esc(login)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
+    media.innerHTML = `<span class="live-tag">LIVE</span><iframe src="${esc(playerUrl(login))}" title="Stream of ${esc(login)}" allow="autoplay; fullscreen" allowfullscreen loading="lazy"></iframe>`;
   } else {
-    media.innerHTML = `<span class="live-tag">LIVE</span><img src="${esc(previewUrl(login))}" alt="" loading="lazy" referrerpolicy="no-referrer"><button class="play" type="button"><svg><use href="#i-play"/></svg>Stream ansehen</button>`;
+    media.innerHTML = `<span class="live-tag">LIVE</span><img src="${esc(previewUrl(login))}" alt="" loading="lazy" referrerpolicy="no-referrer"><button class="play" type="button"><svg><use href="#i-play"/></svg>Watch stream</button>`;
     media.querySelector('.play').addEventListener('click', () => {
       playing.add(login);
       renderSlotMedia(media, login);
@@ -293,11 +293,11 @@ function renderSlots() {
     const el = slotEls[i];
     const slot = o.slots[i];
     const s = slot.streamer;
-    el.querySelector('.slot-label').textContent = `Platz ${i + 1} · ${slot.pinned ? 'fest' : 'automatisch'}`;
+    el.querySelector('.slot-label').textContent = `Slot ${i + 1} · ${slot.pinned ? 'pinned' : 'automatic'}`;
     el.querySelector('.pin-icon').hidden = !slot.pinned;
     const select = el.querySelector('select');
     if (document.activeElement !== select) {
-      const options = ['<option value="">Automatisch</option>', ...channels.map(c => `<option value="${esc(c.login)}">${esc(c.login)}${c.online ? ' · live' : ''}</option>`)];
+      const options = ['<option value="">Automatic</option>', ...channels.map(c => `<option value="${esc(c.login)}">${esc(c.login)}${c.online ? ' · live' : ''}</option>`)];
       if (slot.pinned && !channels.some(c => c.login === slot.pinned)) options.push(`<option value="${esc(slot.pinned)}">${esc(slot.pinned)}</option>`);
       const html = options.join('');
       if (select.dataset.html !== html) {
@@ -308,16 +308,16 @@ function renderSlots() {
     }
     renderSlotMedia(el.querySelector('.slot-media'), s?.login);
     el.querySelector('.avatar').textContent = s ? s.login.charAt(0).toUpperCase() : '·';
-    el.querySelector('h3').textContent = s ? s.login : 'Gerade niemand';
-    el.querySelector('.slot-identity p').textContent = s ? (s.title || '') : (o.bot.status !== 'RUNNING' ? 'Der Bot läuft gerade nicht.' : 'Keiner deiner Kanäle ist live.');
+    el.querySelector('h3').textContent = s ? s.login : 'Nobody right now';
+    el.querySelector('.slot-identity p').textContent = s ? (s.title || '') : (o.bot.status !== 'RUNNING' ? 'The bot isn’t running.' : 'None of your channels is live.');
     const open = el.querySelector('.slot-identity .icon-button');
     open.hidden = !s;
     if (s) open.dataset.channel = s.login;
-    el.querySelector('.slot-meta').innerHTML = s ? `<span>${esc(s.game || '–')}</span><span>${fmt(s.viewers)} Zuschauer</span><span>${fmt(s.minutesWatched)} Min. gelurkt</span>` : '';
+    el.querySelector('.slot-meta').innerHTML = s ? `<span>${esc(s.game || '–')}</span><span>${fmt(s.viewers)} viewers</span><span>${fmt(s.minutesWatched)} min lurked</span>` : '';
     const note = el.querySelector('.slot-note');
     note.hidden = !(slot.pinned && !slot.pinnedOnline);
-    note.textContent = slot.pinned && !slot.pinnedOnline ? `${slot.pinned} ist offline. Der Platz läuft solange automatisch.` : '';
-    el.querySelector('.slot-tags').innerHTML = s ? [s.streakPending ? '<span class="tag hot">Streak</span>' : '', s.dropsEligible ? '<span class="tag hot">Drops</span>' : '', s.source === 'drops' ? '<span class="tag">Drop-Suche</span>' : ''].join(' ') : '';
+    note.textContent = slot.pinned && !slot.pinnedOnline ? `${slot.pinned} is offline. The slot runs automatically until then.` : '';
+    el.querySelector('.slot-tags').innerHTML = s ? [s.streakPending ? '<span class="tag hot">Streak</span>' : '', s.dropsEligible ? '<span class="tag hot">Drops</span>' : '', s.source === 'drops' ? '<span class="tag">Drop hunt</span>' : ''].join(' ') : '';
     const gained = s ? state.channels.find(c => c.login === s.login)?.gainedToday : null;
     const strong = el.querySelector('.slot-foot strong');
     if (s) animateNumber(strong, gained ?? 0, { bump: true, prefix: '+' });
@@ -334,7 +334,7 @@ async function assignSlot(index, login) {
   try {
     await api('/api/slots', { method: 'PUT', body: { slots } });
     state.settings = null;
-    toast(login ? `Platz ${index + 1} gehört jetzt ${login}.` : `Platz ${index + 1} läuft wieder automatisch.`);
+    toast(login ? `Slot ${index + 1} now belongs to ${login}.` : `Slot ${index + 1} is automatic again.`);
     setTimeout(() => loadOverview().catch(() => {}), 800);
   } catch (e) {
     toast(e.message, true);
@@ -359,11 +359,11 @@ function renderNextDrop() {
   const best = nextDrop(state.drops);
   const icon = '<span class="drop-icon"><svg><use href="#i-chest"/></svg></span>';
   if (!best) {
-    box.innerHTML = `${icon}<p class="eyebrow">Nächster Drop</p><h2>Gerade keine Kampagne offen.</h2><p class="meta">Sobald Twitch Drops für deine Spiele verteilt, taucht der Fortschritt hier auf.</p><a class="text-link" href="#drops">Zu den Drops <svg><use href="#i-arrow"/></svg></a>`;
+    box.innerHTML = `${icon}<p class="eyebrow">Next drop</p><h2>No campaign in progress.</h2><p class="meta">As soon as Twitch hands out drops for your games, the progress shows up here.</p><a class="text-link" href="#drops">Go to drops <svg><use href="#i-arrow"/></svg></a>`;
     return;
   }
   const pct = Math.round(best.pct * 100);
-  box.innerHTML = `${icon}<p class="eyebrow">Nächster Drop · ${esc(best.c.game || '')}</p><h2>${esc(best.d.name)}</h2><div class="progress-label"><span>${fmt(best.d.watched)} von ${fmt(best.d.required)} Minuten</span><strong>${pct} %</strong></div><progress value="${pct}" max="100" aria-label="${esc(best.d.name)}, ${pct} Prozent"></progress><p class="meta">Noch ${fmt(best.d.required - best.d.watched)} Minuten Watch-Time.</p><a class="text-link" href="#drops">Zu den Drops <svg><use href="#i-arrow"/></svg></a>`;
+  box.innerHTML = `${icon}<p class="eyebrow">Next drop · ${esc(best.c.game || '')}</p><h2>${esc(best.d.name)}</h2><div class="progress-label"><span>${fmt(best.d.watched)} of ${fmt(best.d.required)} minutes</span><strong>${pct}%</strong></div><progress value="${pct}" max="100" aria-label="${esc(best.d.name)}, ${pct} Prozent"></progress><p class="meta">${fmt(best.d.required - best.d.watched)} minutes of watch time to go.</p><a class="text-link" href="#drops">Go to drops <svg><use href="#i-arrow"/></svg></a>`;
 }
 
 async function loadOverview() {
@@ -381,11 +381,11 @@ function renderOverview() {
   $('#empty-state').hidden = !neverConnected;
   $('#overview-content').hidden = neverConnected;
 
-  $('#today-label').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long' });
+  $('#today-label').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
   $('#overview-sub').textContent = o.bot.status === 'RUNNING'
-    ? `${o.online} von ${o.tracked} Kanälen sind live. Der Bot lurkt in zweien davon.`
-    : 'Der Bot macht gerade Pause. Unter „Bot & Login“ geht’s weiter.';
-  $('#session-state').textContent = `${BOT_TEXT[o.bot.status]?.[0] || ''}${o.bot.user ? ' als ' + o.bot.user : ''}`;
+    ? `${o.online} of ${o.tracked} channels are live. The bot lurks in two of them.`
+    : 'The bot is taking a break. Head to “Bot & Login” to continue.';
+  $('#session-state').textContent = `${BOT_TEXT[o.bot.status]?.[0] || ''}${o.bot.user ? ' as ' + o.bot.user : ''}`;
 
   setPhase();
   animateNumber($('#stat-today'), o.stats.pointsToday, { bump: true });
@@ -396,7 +396,7 @@ function renderOverview() {
 
   renderSlots();
   const feed = o.feed.filter(e => !FEED_HIDDEN(e)).slice(0, 12);
-  $('#feed').innerHTML = feed.length ? feed.map(feedItem).join('') : '<li class="feed-empty">Noch ruhig hier. Die ersten Punkte kommen, sobald jemand live ist.</li>';
+  $('#feed').innerHTML = feed.length ? feed.map(feedItem).join('') : '<li class="feed-empty">Quiet so far. The first points arrive as soon as someone goes live.</li>';
   $('#nav-channels').textContent = o.tracked || '';
   $('#nav-drops').hidden = !(state.drops?.campaigns?.length);
   renderNextDrop();
@@ -411,23 +411,23 @@ function sparkline(values, w = 120, h = 34) {
 }
 
 function channelRow(c, sortable) {
-  const status = c.watching ? 'wird gelurkt' : c.online ? `live · ${c.game || ''}` : 'offline';
+  const status = c.watching ? 'being lurked' : c.online ? `live · ${c.game || ''}` : 'offline';
   const tags = [
-    c.slot ? `<span class="tag hot">Platz ${c.slot}</span>` : '',
+    c.slot ? `<span class="tag hot">Slot ${c.slot}</span>` : '',
     c.streakPending ? '<span class="tag hot">Streak</span>' : '',
     c.dropsEligible ? '<span class="tag hot">Drops</span>' : '',
-    c.source === 'drops' ? '<span class="tag">Drop-Suche</span>' : c.source === 'extra' ? '<span class="tag">Extra</span>' : '',
-    c.raffles ? '' : '<span class="tag">Raffles aus</span>',
+    c.source === 'drops' ? '<span class="tag">Drop hunt</span>' : c.source === 'extra' ? '<span class="tag">Extra</span>' : '',
+    c.raffles ? '' : '<span class="tag">Raffles off</span>',
   ].join('');
   const spark = sparkline(c.spark);
   const order = sortable
-    ? `<button class="grip" type="button" aria-label="${esc(c.login)} verschieben" data-grip="${esc(c.login)}"><svg><use href="#i-grip"/></svg></button><span class="rank">${c.rank}</span><span class="move"><button type="button" data-move="-1" data-login="${esc(c.login)}" aria-label="${esc(c.login)} nach oben"><svg><use href="#i-up"/></svg></button><button type="button" data-move="1" data-login="${esc(c.login)}" aria-label="${esc(c.login)} nach unten"><svg><use href="#i-down"/></svg></button></span>`
+    ? `<button class="grip" type="button" aria-label="Move ${esc(c.login)}" data-grip="${esc(c.login)}"><svg><use href="#i-grip"/></svg></button><span class="rank">${c.rank}</span><span class="move"><button type="button" data-move="-1" data-login="${esc(c.login)}" aria-label="Move ${esc(c.login)} up"><svg><use href="#i-up"/></svg></button><button type="button" data-move="1" data-login="${esc(c.login)}" aria-label="Move ${esc(c.login)} down"><svg><use href="#i-down"/></svg></button></span>`
     : `<span class="rank">${c.rank}</span>`;
   return `<li class="channel-row" data-login="${esc(c.login)}" data-live="${c.online}"><div class="order-cell">${order}</div>
 <div class="channel-name"><span class="avatar">${initial(c.login)}</span><div><strong>${esc(c.login)}</strong><small>${c.online ? '<span class="live-dot"></span>' : ''}${esc(status)} ${tags}</small></div></div>
-<div class="value"><span class="mobile-label">Punkte </span>${fmt(c.points)}</div><div class="gain"><span class="mobile-label">Heute </span>+${fmt(c.gainedToday)}</div>
-${spark ? `<svg class="sparkline" viewBox="0 0 120 34" role="img" aria-label="Punkteverlauf ${esc(c.login)}, 7 Tage"><polyline points="${spark}" pathLength="1"/></svg>` : '<span class="meta spark-empty">noch kein Verlauf</span>'}
-<button class="icon-button channel-open" data-channel="${esc(c.login)}" aria-label="${esc(c.login)} öffnen"><svg><use href="#i-arrow"/></svg></button></li>`;
+<div class="value"><span class="mobile-label">Points </span>${fmt(c.points)}</div><div class="gain"><span class="mobile-label">Today </span>+${fmt(c.gainedToday)}</div>
+${spark ? `<svg class="sparkline" viewBox="0 0 120 34" role="img" aria-label="Points history of ${esc(c.login)}, 7 days"><polyline points="${spark}" pathLength="1"/></svg>` : '<span class="meta spark-empty">no history yet</span>'}
+<button class="icon-button channel-open" data-channel="${esc(c.login)}" aria-label="Open ${esc(c.login)}"><svg><use href="#i-arrow"/></svg></button></li>`;
 }
 
 async function loadChannels() {
@@ -461,11 +461,11 @@ function renderChannels() {
   renderChannels.points = Object.fromEntries(state.channels.map(c => [c.login, c.points]));
   $('#no-channels').hidden = list.length > 0;
   $('#order-hint').textContent = sortable
-    ? 'Ziehen am Griff (oder die Pfeile) ändert die Reihenfolge. Sie entscheidet, wer einen automatischen Platz bekommt, nachdem Streaks und Drops versorgt sind.'
-    : 'Sortieren geht nur ohne Suche und Filter.';
+    ? 'Drag the handle (or use the arrows) to reorder. The order decides who gets an automatic slot once streaks and drops are taken care of.'
+    : 'Reordering only works without search and filter.';
   const online = state.channels.filter(c => c.online).length;
-  $('#channels-sub').textContent = `${state.channels.length} Kanäle, ${online} davon live.`;
-  if (state.settings) $('#priority-label').textContent = state.settings.priority.map(p => ({ STREAK: 'Streak', DROPS: 'Drops', ORDER: 'Reihenfolge', SUBSCRIBED: 'Abo-Bonus', POINTS_ASCENDING: 'wenigste Punkte', POINTS_DESCENDING: 'meiste Punkte' }[p] || p)).join(' → ');
+  $('#channels-sub').textContent = `${state.channels.length} channels, ${online} of them live.`;
+  if (state.settings) $('#priority-label').textContent = state.settings.priority.map(p => ({ STREAK: 'Streak', DROPS: 'Drops', ORDER: 'Order', SUBSCRIBED: 'Sub bonus', POINTS_ASCENDING: 'fewest points', POINTS_DESCENDING: 'most points' }[p] || p)).join(' → ');
   enter('channels');
 }
 
@@ -476,7 +476,7 @@ async function saveOrder(logins) {
   try {
     await api('/api/order', { method: 'PUT', body: { order: logins } });
     state.settings = null;
-    toast('Reihenfolge gespeichert. Der Bot richtet sich sofort danach.');
+    toast('Order saved. The bot follows it right away.');
   } catch (e) {
     toast(e.message, true);
     loadChannels().catch(() => {});
@@ -549,13 +549,13 @@ async function openChannel(login) {
   const detail = await api(`/api/channels/${encodeURIComponent(login)}?days=30`);
   const c = detail.channel;
   $('#detail-name').textContent = login;
-  $('#detail-info').textContent = c ? (c.online ? `Live · ${c.game || ''} · ${fmt(c.viewers)} Zuschauer` : 'Gerade offline') : '';
+  $('#detail-info').textContent = c ? (c.online ? `Live · ${c.game || ''} · ${fmt(c.viewers)} viewers` : 'Offline right now') : '';
   $('#detail-points').textContent = c ? fmt(c.points) : '–';
   $('#detail-gain').textContent = c ? '+' + fmt(c.gainedToday) : '–';
   $('#detail-week').textContent = c ? '+' + fmt(c.gainedWeek) : '–';
   $('#detail-chart').innerHTML = detailChart(detail.history);
   const events = detail.events.filter(e => !(e.type === 'POINTS' && e.detail === 'WATCH')).slice(0, 30);
-  $('#detail-events').innerHTML = events.length ? events.map(feedItem).join('') : '<li class="feed-empty">Noch nichts passiert.</li>';
+  $('#detail-events').innerHTML = events.length ? events.map(feedItem).join('') : '<li class="feed-empty">Nothing happened yet.</li>';
   const toggle = $('#detail-raffle');
   toggle.checked = c ? c.raffles : true;
   toggle.onchange = () => setRaffle(login, toggle.checked);
@@ -563,7 +563,7 @@ async function openChannel(login) {
 }
 
 function detailChart(points) {
-  if (!points || points.length < 2) return '<p class="muted">Für einen Verlauf braucht es noch ein paar Messpunkte.</p>';
+  if (!points || points.length < 2) return '<p class="muted">A few more data points are needed for a chart.</p>';
   const W = 640, H = 240, L = 60, R = 604, T = 35, B = 190;
   const t0 = new Date(points[0].ts).getTime(), t1 = new Date(points.at(-1).ts).getTime() || t0 + 1;
   const vals = points.map(p => p.points);
@@ -571,8 +571,8 @@ function detailChart(points) {
   const x = t => L + (t - t0) / ((t1 - t0) || 1) * (R - L);
   const y = v => B - (v - min) / span * (B - T);
   const line = points.map(p => `${x(new Date(p.ts).getTime()).toFixed(1)},${y(p.points).toFixed(1)}`).join(' ');
-  const d = ts => new Date(ts).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
-  return `<svg class="detail-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Punktestand von ${fmt(vals[0])} auf ${fmt(vals.at(-1))}"><path class="gridline" d="M${L} ${T}H${R}M${L} ${(T + B) / 2}H${R}M${L} ${B}H${R}"/><text class="axis" x="0" y="${T + 5}">${fmt(max)}</text><text class="axis" x="0" y="${B + 5}">${fmt(min)}</text><polyline class="chart-path" points="${line}" pathLength="1"/><text class="axis" x="${L}" y="223">${d(points[0].ts)}</text><text class="axis" x="${R - 40}" y="223">${d(points.at(-1).ts)}</text></svg>`;
+  const d = ts => new Date(ts).toLocaleDateString(undefined, { day: '2-digit', month: '2-digit' });
+  return `<svg class="detail-chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Points from ${fmt(vals[0])} to ${fmt(vals.at(-1))}"><path class="gridline" d="M${L} ${T}H${R}M${L} ${(T + B) / 2}H${R}M${L} ${B}H${R}"/><text class="axis" x="0" y="${T + 5}">${fmt(max)}</text><text class="axis" x="0" y="${B + 5}">${fmt(min)}</text><polyline class="chart-path" points="${line}" pathLength="1"/><text class="axis" x="${L}" y="223">${d(points[0].ts)}</text><text class="axis" x="${R - 40}" y="223">${d(points.at(-1).ts)}</text></svg>`;
 }
 
 async function setRaffle(login, enabled) {
@@ -581,7 +581,7 @@ async function setRaffle(login, enabled) {
     const c = state.channels.find(ch => ch.login === login);
     if (c) c.raffles = enabled;
     state.settings = null;
-    toast(enabled ? `Raffles bei ${login} wieder an.` : `Keine Raffles mehr bei ${login}.`);
+    toast(enabled ? `Raffles on again for ${login}.` : `No more raffles for ${login}.`);
   } catch (e) {
     toast(e.message, true);
   }
@@ -599,19 +599,19 @@ function renderDrops() {
   $('#campaign-count').textContent = d.campaigns.length;
   $('#inventory-count').textContent = d.claimed.length;
   $('#campaigns').innerHTML = d.campaigns.length ? d.campaigns.map(c => {
-    const ends = c.endsAt ? new Date(c.endsAt).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
+    const ends = c.endsAt ? new Date(c.endsAt).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const drops = c.drops.map(dr => {
       const pct = dr.required ? Math.min(100, Math.round(dr.watched / dr.required * 100)) : 0;
-      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${dr.claimed ? '<span class="claimed">Geclaimt</span>' : pct + ' %'}</strong></div><progress value="${dr.claimed ? 100 : pct}" max="100" aria-label="${esc(dr.name)} Fortschritt"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} Minuten</small></li>`;
+      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${dr.claimed ? '<span class="claimed">Claimed</span>' : pct + '%'}</strong></div><progress value="${dr.claimed ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small></li>`;
     }).join('');
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
-    return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between"><span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account verknüpft' : 'Account nicht verknüpft'}</span><span class="meta">${ends ? 'bis ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
-  }).join('') : `<div class="panel"><h2>Gerade keine laufende Kampagne.</h2><p class="meta">Kampagnen erscheinen, sobald du bei einem Drop-Kanal Watch-Time sammelst.${d.updatedAt ? ' Zuletzt geprüft ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
+    return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between"><span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account linked' : 'Account not linked'}</span><span class="meta">${ends ? 'until ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
+  }).join('') : `<div class="panel"><h2>No campaign in progress.</h2><p class="meta">Campaigns show up as soon as you collect watch time on a drop channel.${d.updatedAt ? ' Last checked ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
 
-  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small></article>`).join('') : '<p class="meta">Noch nichts im Inventar.</p>';
+  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small></article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
 
   const scouted = d.scouted || [];
-  $('#scouted').innerHTML = `<h2>Drop-Suche</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'Diese Kanäle hat der Bot für laufende Kampagnen dazugeholt.' : 'Aktiv. Noch keine zusätzlichen Kanäle nötig.') : 'Ausgeschaltet. Nur deine eigenen Kanäle sammeln Drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
+  $('#scouted').innerHTML = `<h2>Drop hunt</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'The bot added these channels for running campaigns.' : 'Active. No extra channels needed yet.') : 'Off. Only your own channels collect drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
   $('#nav-drops').hidden = !d.campaigns.length;
   $('.tab-dot').hidden = !d.campaigns.length;
   renderWatchlist();
@@ -628,8 +628,8 @@ function isWatched(game) {
 function renderWatchlist() {
   const games = state.drops?.watchGames || [];
   $('#watch-chips').innerHTML = games.length
-    ? games.map(g => `<li class="chip"><span>${esc(g)}</span><button type="button" class="chip-remove" data-unwatch="${esc(g)}" aria-label="${esc(g)} nicht mehr beobachten">×</button></li>`).join('')
-    : '<li class="meta">Noch nichts beobachtet.</li>';
+    ? games.map(g => `<li class="chip"><span>${esc(g)}</span><button type="button" class="chip-remove" data-unwatch="${esc(g)}" aria-label="Stop watching ${esc(g)}">×</button></li>`).join('')
+    : '<li class="meta">Not watching anything yet.</li>';
   const names = [...new Set((state.drops?.catalogue || []).map(c => c.game).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
   const html = names.map(n => `<option value="${esc(n)}"></option>`).join('');
   if ($('#game-suggestions').dataset.html !== html) {
@@ -639,11 +639,11 @@ function renderWatchlist() {
 }
 
 function timeWindow(c) {
-  const fmtD = iso => new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
-  if (c.status === 'UPCOMING' && c.startAt) return `ab ${fmtD(c.startAt)}`;
+  const fmtD = iso => new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  if (c.status === 'UPCOMING' && c.startAt) return `from ${fmtD(c.startAt)}`;
   if (!c.endAt) return '';
   const hours = Math.round((new Date(c.endAt) - Date.now()) / 3600000);
-  return hours < 48 ? `noch ${Math.max(0, hours)} Std.` : `bis ${fmtD(c.endAt)}`;
+  return hours < 48 ? `${Math.max(0, hours)} h left` : `until ${fmtD(c.endAt)}`;
 }
 
 function renderCatalogue() {
@@ -662,19 +662,19 @@ function renderCatalogue() {
   const updated = state.drops?.catalogueUpdatedAt;
   const access = state.drops?.catalogueAccess;
   $('#catalogue-meta').textContent = all.length
-    ? `${list.length} von ${all.length} Kampagnen${updated ? ' · Stand ' + time(updated) + ' Uhr' : ''} · Quelle: Community-Liste twitch-drops-api.sunkwi.com`
+    ? `${list.length} of ${all.length} campaigns${updated ? ' · as of ' + time(updated) : ''} · source: community list twitch-drops-api.sunkwi.com`
     : access === 'unavailable'
-      ? 'Die Drop-Liste ist gerade nicht erreichbar. Beobachtete Spiele sucht der Bot trotzdem direkt auf Twitch.'
-      : 'Der Bot lädt die Kampagnen (dauert ein, zwei Minuten nach dem Start).';
+      ? 'The drop list is unreachable right now. The bot still looks for watched games directly on Twitch.'
+      : 'The bot is loading the campaigns (takes a minute or two after startup).';
   $('#catalogue-grid').innerHTML = list.map(c => {
     const watched = c.watched || isWatched(c.game);
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
-    const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${fmt(r.minutes)} Min.</small></li>`).join('');
-    const more = c.rewards.length > 6 ? `<li class="meta">+${c.rewards.length - 6} weitere</li>` : '';
-    const where = c.channels.length ? `Nur bei ${c.channels.length} Kanälen` : 'Bei allen Drop-Streams';
-    const link = c.linked !== true && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Account verknüpfen <svg><use href="#i-arrow"/></svg></a>` : '';
-    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Läuft' : 'Bald'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked === true ? '<span class="positive">✓ verknüpft</span>' : c.linked === false ? 'nicht verknüpft' : 'Verknüpfung unbekannt'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Beobachtet ✓' : 'Beobachten'}</button></div></div></article>`;
-  }).join('') || '<div class="panel"><p class="meta">Nichts gefunden.</p></div>';
+    const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${fmt(r.minutes)} min</small></li>`).join('');
+    const more = c.rewards.length > 6 ? `<li class="meta">+${c.rewards.length - 6} more</li>` : '';
+    const where = c.channels.length ? `Only on ${c.channels.length} channels` : 'On all drop streams';
+    const link = c.linked !== true && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Link account <svg><use href="#i-arrow"/></svg></a>` : '';
+    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Running' : 'Soon'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked === true ? '<span class="positive">✓ linked</span>' : c.linked === false ? 'not linked' : 'link status unknown'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Watching ✓' : 'Watch'}</button></div></div></article>`;
+  }).join('') || '<div class="panel"><p class="meta">Nothing found.</p></div>';
 }
 
 async function setWatchGames(games) {
@@ -693,11 +693,11 @@ function toggleWatch(game) {
   const games = state.drops?.watchGames || [];
   const watched = games.some(g => g.toLowerCase() === game.toLowerCase());
   setWatchGames(watched ? games.filter(g => g.toLowerCase() !== game.toLowerCase()) : [...games, game])
-    .then(() => toast(watched ? `${game} wird nicht mehr beobachtet.` : `${game} wird beobachtet. Gibt es Drops, lurkt der Bot passende Streams.`));
+    .then(() => toast(watched ? `No longer watching ${game}.` : `Watching ${game}. When there are drops, the bot lurks matching streams.`));
 }
 
 // ---------- Raffles ----------
-const RAFFLE_STATUS = { PENDING: ['Gleich dabei', ''], JOINED: ['Eingetragen', ''], WON: ['Gewonnen', 'won'], SKIPPED: ['Übersprungen', 'skipped'], FAILED: ['Abgelehnt', 'failed'] };
+const RAFFLE_STATUS = { PENDING: ['Joining soon', ''], JOINED: ['Entered', ''], WON: ['Won', 'won'], SKIPPED: ['Skipped', 'skipped'], FAILED: ['Rejected', 'failed'] };
 
 async function loadRaffles() {
   const [raffles, channels, settings] = await Promise.all([api('/api/raffles'), api('/api/channels'), api('/api/settings')]);
@@ -708,15 +708,15 @@ async function loadRaffles() {
 function renderRaffles() {
   const r = state.raffles;
   if (!r) return;
-  $('#raffle-summary').textContent = `${fmt(r.joinedToday)} heute eingetragen · ${fmt(r.wonTotal)} Gewinne erkannt`;
+  $('#raffle-summary').textContent = `${fmt(r.joinedToday)} entered today · ${fmt(r.wonTotal)} wins spotted`;
   const problem = $('#raffle-problem');
   problem.hidden = !r.status.problem;
   problem.textContent = r.status.problem || '';
-  $('#raffle-chat-state').textContent = !r.status.enabled ? 'Ausgeschaltet' : r.status.connected ? `Hört in ${r.status.channels.length} Chats mit` : 'Chat nicht verbunden';
+  $('#raffle-chat-state').textContent = !r.status.enabled ? 'Off' : r.status.connected ? `Listening in ${r.status.channels.length} chats` : 'Chat not connected';
   $('#raffle-log').innerHTML = r.entries.length ? r.entries.map(e => {
     const [label, cls] = RAFFLE_STATUS[e.status] || [e.status, ''];
-    return `<article class="raffle-entry"><header><strong>${esc(e.channel)}</strong><time>${esc(dateTime(e.ts))}</time></header><blockquote>„${esc(e.triggerMessage)}“</blockquote><p>${esc(e.triggerUser)} · Befehl: <strong>${esc(e.command)}</strong>${e.detail ? ' · ' + esc(e.detail) : ''}</p><span class="result ${cls}">${label}</span></article>`;
-  }).join('') : '<p class="muted">Noch keine Verlosung erkannt. Sobald ein Bot oder Mod eine ankündigt, landet sie hier.</p>';
+    return `<article class="raffle-entry"><header><strong>${esc(e.channel)}</strong><time>${esc(dateTime(e.ts))}</time></header><blockquote>„${esc(e.triggerMessage)}“</blockquote><p>${esc(e.triggerUser)} · command: <strong>${esc(e.command)}</strong>${e.detail ? ' · ' + esc(e.detail) : ''}</p><span class="result ${cls}">${label}</span></article>`;
+  }).join('') : '<p class="muted">No raffle spotted yet. As soon as a bot or mod announces one, it shows up here.</p>';
 
   const toggles = $('#raffle-toggles');
   toggles.replaceChildren(...state.channels.filter(c => c.source !== 'drops').map(c => {
@@ -732,10 +732,10 @@ function renderRaffles() {
     label.append(text, input);
     return label;
   }));
-  if (!toggles.children.length) toggles.innerHTML = '<p class="muted">Sobald der Bot deine Kanäle kennt, kannst du sie hier einzeln schalten.</p>';
+  if (!toggles.children.length) toggles.innerHTML = '<p class="muted">Once the bot knows your channels, you can switch them here one by one.</p>';
 
   const s = state.settings?.raffle;
-  $('#raffle-patterns').innerHTML = s ? `<li><strong>Befehle</strong><span>${s.joinCommands.map(c => '!' + esc(c)).join(', ')}</span></li><li><strong>Bots</strong><span>${s.bots.map(esc).join(', ')}</span></li><li><strong>Timing</strong><span>${s.minDelaySeconds}–${s.maxDelaySeconds} s Verzögerung, ${Math.round(s.cooldownSeconds / 60)} Min. Pause</span></li>` : '';
+  $('#raffle-patterns').innerHTML = s ? `<li><strong>Commands</strong><span>${s.joinCommands.map(c => '!' + esc(c)).join(', ')}</span></li><li><strong>Bots</strong><span>${s.bots.map(esc).join(', ')}</span></li><li><strong>Timing</strong><span>${s.minDelaySeconds}–${s.maxDelaySeconds} s delay, ${Math.round(s.cooldownSeconds / 60)} min pause</span></li>` : '';
   enter('raffles');
 }
 
@@ -756,13 +756,13 @@ function renderBot() {
   if (!b) return;
   renderBotMini(b);
   $('#bot-state').textContent = BOT_TEXT[b.status]?.[1] || b.status;
-  $('#account-state').textContent = b.user ? `Eingeloggt als ${b.user}` : 'Kein Twitch-Account verbunden';
+  $('#account-state').textContent = b.user ? `Signed in as ${b.user}` : 'No Twitch account connected';
   $('#started-at').textContent = b.startedAt ? dateTime(b.startedAt) : '–';
-  $('#active-count').textContent = state.overview ? `${state.overview.watching.length} von 2` : '–';
+  $('#active-count').textContent = state.overview ? `${state.overview.watching.length} of 2` : '–';
   $('#restart-count').textContent = fmt(b.restarts);
   const toggle = $('#bot-toggle');
   const running = ['RUNNING', 'STARTING', 'BACKOFF'].includes(b.status);
-  toggle.textContent = running ? 'Bot stoppen' : 'Bot starten';
+  toggle.textContent = running ? 'Stop bot' : 'Start bot';
   toggle.dataset.action = running ? 'stop' : 'start';
   toggle.disabled = b.status === 'NEEDS_LOGIN';
   $('#bot-restart').disabled = !running;
@@ -775,26 +775,26 @@ function renderLogin() {
   if (!t) return;
   clearTimeout(renderLogin.poll);
   if (t.state === 'PENDING') {
-    $('#login-text').textContent = 'Öffne Twitch auf einem Gerät deiner Wahl und gib diesen Code ein. Der Bot wartet.';
-    box.innerHTML = `<div class="device-code waiting-code" aria-label="Code ${esc(t.userCode)}">${esc(t.userCode)}</div><a class="primary external-link" href="${esc(t.verificationUri)}" target="_blank" rel="noopener noreferrer">twitch.tv/activate <span aria-hidden="true">↗</span></a><p class="waiting">Wartet auf Bestätigung · gültig bis ${esc(time(t.codeExpiresAt))} Uhr</p><button class="secondary" data-twitch="cancel">Abbrechen</button>`;
+    $('#login-text').textContent = 'Open Twitch on any device and enter this code. The bot is waiting.';
+    box.innerHTML = `<div class="device-code waiting-code" aria-label="Code ${esc(t.userCode)}">${esc(t.userCode)}</div><a class="primary external-link" href="${esc(t.verificationUri)}" target="_blank" rel="noopener noreferrer">twitch.tv/activate <span aria-hidden="true">↗</span></a><p class="waiting">Waiting for confirmation · valid until ${esc(time(t.codeExpiresAt))}</p><button class="secondary" data-twitch="cancel">Cancel</button>`;
     renderLogin.poll = setTimeout(async () => {
       state.twitch = await api('/api/twitch');
       if (state.twitch.state === 'READY') {
-        toast('Twitch ist verbunden. Der Bot startet.');
+        toast('Twitch is connected. The bot is starting.');
         loadBot();
       } else renderLogin();
     }, 3000);
     return;
   }
   if (t.state === 'READY') {
-    $('#login-text').textContent = 'Verbunden. Der Token liegt nur auf dem Server, nie im Browser.';
-    box.innerHTML = `<div class="login-done"><p><strong>${esc(t.login)}</strong></p>${t.canChat ? '<p class="positive">✓ Chat-Rechte für Raffles vorhanden</p>' : '<p class="scope-warning">Dem Token fehlt chat:edit. Für Raffles einmal neu verbinden.</p>'}<div class="button-row"><button class="secondary" data-twitch="login">Neu verbinden</button><button class="secondary" data-twitch="logout">Trennen</button></div></div>`;
+    $('#login-text').textContent = 'Connected. The token lives on the server only, never in the browser.';
+    box.innerHTML = `<div class="login-done"><p><strong>${esc(t.login)}</strong></p>${t.canChat ? '<p class="positive">✓ Chat permission for raffles granted</p>' : '<p class="scope-warning">The token lacks chat:edit. Reconnect once for raffles.</p>'}<div class="button-row"><button class="secondary" data-twitch="login">Reconnect</button><button class="secondary" data-twitch="logout">Disconnect</button></div></div>`;
     return;
   }
   $('#login-text').textContent = t.state === 'EXPIRED'
-    ? 'Twitch hat den Zugang beendet. Einmal neu verbinden, dann läuft alles weiter.'
-    : 'Einmal verbinden. Du bekommst einen Code, den du auf twitch.tv/activate eingibst.';
-  box.innerHTML = `${t.error ? `<p class="scope-warning">${esc(t.error)}</p>` : ''}<button class="primary" data-twitch="login">Mit Twitch verbinden</button>`;
+    ? 'Twitch ended the access. Reconnect once and everything carries on.'
+    : 'Connect once. You get a code to enter at twitch.tv/activate.';
+  box.innerHTML = `${t.error ? `<p class="scope-warning">${esc(t.error)}</p>` : ''}<button class="primary" data-twitch="login">Connect Twitch</button>`;
 }
 
 const IMPORTANT = /(\+\d+|claim|raid|drop|join|login|start|load|error|fehl|streak|online|offline|moment|bonus)/i;
@@ -803,7 +803,7 @@ function logItem(l) {
   const li = document.createElement('li');
   li.className = `level-${l.level}`;
   const t = document.createElement('time');
-  t.textContent = new Date(l.ts).toLocaleTimeString('de-DE');
+  t.textContent = new Date(l.ts).toLocaleTimeString(undefined);
   const level = document.createElement('span');
   level.className = 'log-level';
   level.textContent = l.level === 'STDERR' ? 'SYS' : l.level;
@@ -823,7 +823,7 @@ async function botAction(action) {
   try {
     state.bot = await api(`/api/bot/${action}`, { method: 'POST' });
     renderBot();
-    toast({ start: 'Bot startet.', stop: 'Bot pausiert.', restart: 'Bot startet neu.' }[action]);
+    toast({ start: 'Bot starting.', stop: 'Bot paused.', restart: 'Bot restarting.' }[action]);
     setTimeout(() => loadBot().catch(() => {}), 4000);
   } catch (e) {
     toast(e.message, true);
@@ -843,7 +843,7 @@ async function twitchAction(action) {
 
 function confirmLogout() {
   // Native confirm is fine here: rare, destructive-ish, and keyboard accessible.
-  return window.confirm('Twitch wirklich trennen? Der Bot hört dann auf zu sammeln.');
+  return window.confirm('Really disconnect Twitch? The bot will stop collecting.');
 }
 
 // ---------- Settings ----------
@@ -871,7 +871,7 @@ function fillSettings(s) {
   f.lurkEnabled.checked = s.lurk.enabled;
   f.lurkMessage.value = s.lurk.message;
   const repeat = String(s.lurk.repeatMinutes);
-  if (![...f.lurkRepeat.options].some(o => o.value === repeat)) f.lurkRepeat.add(new Option(`Alle ${repeat} Minuten`, repeat));
+  if (![...f.lurkRepeat.options].some(o => o.value === repeat)) f.lurkRepeat.add(new Option(`Every ${repeat} minutes`, repeat));
   f.lurkRepeat.value = repeat;
   f.joinCommands.value = s.raffle.joinCommands.map(c => '!' + c).join(', ');
   f.bots.value = s.raffle.bots.join(', ');
@@ -910,11 +910,11 @@ async function saveSettings(ev) {
   try {
     state.settings = await api('/api/settings', { method: 'PUT', body });
     fillSettings(state.settings);
-    msg.textContent = 'Gespeichert. Der Bot übernimmt die Änderungen.';
-    toast('Einstellungen gespeichert.');
+    msg.textContent = 'Saved. The bot applies the changes.';
+    toast('Settings saved.');
   } catch (e) {
     msg.textContent = e.message;
-    toast('Nicht gespeichert: ' + e.message, true);
+    toast('Not saved: ' + e.message, true);
   }
 }
 
@@ -929,7 +929,7 @@ function connectLive() {
   const es = new EventSource('/api/live');
   const label = $('#live-label');
   es.onopen = () => { label.textContent = 'Live'; };
-  es.onerror = () => { label.textContent = 'Verbindung weg, versuche neu …'; };
+  es.onerror = () => { label.textContent = 'Connection lost, retrying …'; };
   es.addEventListener('state', () => {
     if (['overview', 'channels', 'bot'].includes(currentScreen())) scheduleRefresh();
   });
@@ -1005,7 +1005,7 @@ function wire() {
   $('#refresh-follows').addEventListener('click', async () => {
     try {
       const r = await api('/api/channels/refresh', { method: 'POST' });
-      toast(r.requested ? 'Follows werden abgeglichen. Neue Kanäle tauchen gleich auf.' : 'Der Bot läuft gerade nicht.');
+      toast(r.requested ? 'Syncing follows. New channels show up in a moment.' : 'The bot isn’t running.');
       setTimeout(() => loadChannels().catch(() => {}), 8000);
     } catch (e) {
       toast(e.message, true);
@@ -1047,7 +1047,7 @@ function wire() {
     const input = $('#add-channel-input');
     try {
       state.channels = await api('/api/channels', { method: 'POST', body: { login: input.value.trim() } });
-      toast(`${input.value.trim()} kommt dazu.`);
+      toast(`Adding ${input.value.trim()}.`);
       input.value = '';
       state.settings = null;
       renderChannels();
@@ -1068,9 +1068,9 @@ async function init() {
   wire();
   try {
     const me = await api('/api/me');
-    $('#me-name').textContent = me.name || 'Du';
+    $('#me-name').textContent = me.name || 'You';
     $('#me-initial').textContent = (me.name || '?').charAt(0).toUpperCase();
-    $('#me-name-mobile').textContent = me.name || 'Du';
+    $('#me-name-mobile').textContent = me.name || 'You';
     $('#me-initial-mobile').textContent = (me.name || '?').charAt(0).toUpperCase();
   } catch (e) {
     return;

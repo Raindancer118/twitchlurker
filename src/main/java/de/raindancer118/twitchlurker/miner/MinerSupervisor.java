@@ -213,7 +213,7 @@ public class MinerSupervisor {
             p.onExit().thenAccept(this::onExit);
             log.info("Miner runner started (pid {})", p.pid());
         } catch (IOException e) {
-            handler.handleStderr("Runner konnte nicht gestartet werden: " + e.getMessage());
+            handler.handleStderr("Runner could not be started: " + e.getMessage());
             scheduleRestart();
         }
     }
@@ -245,7 +245,7 @@ public class MinerSupervisor {
         if (stopping) {
             return;
         }
-        handler.handleStderr("Runner beendet mit Code " + code + " nach " + ran.toSeconds() + " s");
+        handler.handleStderr("Runner exited with code " + code + " after " + ran.toSeconds() + " s");
         if (ran.compareTo(STABLE_RUN) > 0) {
             consecutiveFailures = 0;
         }

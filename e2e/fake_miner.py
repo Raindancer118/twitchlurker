@@ -45,9 +45,9 @@ def state_loop():
         pinned = [s for s in slots if s and s in ("papaplatte", "zarbex", "trymacs")]
         watching = (pinned + [x for x in ("papaplatte", "zarbex") if x not in pinned])[:2]
         rows = {
-            "papaplatte": streamer("papaplatte", True, "papaplatte" in watching, "Just Chatting", '<img src=x onerror="window.__xss=1"> Chillen & Quatschen', 21000, streak=True),
+            "papaplatte": streamer("papaplatte", True, "papaplatte" in watching, "Just Chatting", '<img src=x onerror="window.__xss=1"> Chilling & chatting', 21000, streak=True),
             "zarbex": streamer("zarbex", True, "zarbex" in watching, "Rust", "Rust Wipe Day #drops", 5400, drops=True),
-            "trymacs": streamer("trymacs", True, "trymacs" in watching, "Minecraft", "Hardcore Tag 12", 9000),
+            "trymacs": streamer("trymacs", True, "trymacs" in watching, "Minecraft", "Hardcore day 12", 9000),
             "gronkh": streamer("gronkh", False, False),
         }
         if "newfollow" in BASE:

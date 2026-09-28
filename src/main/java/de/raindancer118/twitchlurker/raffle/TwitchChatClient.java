@@ -193,7 +193,7 @@ public class TwitchChatClient implements ChatConnection {
                 case "NOTICE" -> {
                     String text = msg.text() == null ? "" : msg.text();
                     if (text.contains("Login authentication failed") || text.contains("Improperly formatted auth")) {
-                        problem = "Twitch hat den Chat-Login abgelehnt. Bitte Twitch neu verbinden.";
+                        problem = "Twitch rejected the chat login. Please reconnect Twitch.";
                         closed = true;
                         connected = false;
                         if (transport != null) {
