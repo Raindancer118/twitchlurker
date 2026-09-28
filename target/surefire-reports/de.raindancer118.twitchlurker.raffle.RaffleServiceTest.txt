@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: de.raindancer118.twitchlurker.raffle.RaffleServiceTest
--------------------------------------------------------------------------------
-Tests run: 6, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.617 s -- in de.raindancer118.twitchlurker.raffle.RaffleServiceTest

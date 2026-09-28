@@ -1,3 +1,8 @@
+target/
+.mvn/wrapper/maven-wrapper.jar
+.idea/
+*.iml
+.vscode/
 prototype/node_modules/
 prototype/.browsers/
 prototype/test-results/
