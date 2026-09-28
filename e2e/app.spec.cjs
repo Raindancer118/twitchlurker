@@ -95,11 +95,17 @@ test('actions: add channel, invalid settings, raffle toggle, stop/start', async 
   await page.click('#add-channel button[type=submit]');
   await expect(page.locator('#toast')).toContainText('papaplatte_2', { ignoreCase: true });
 
+  // Slow settings load: whatever the user already typed must survive it (CI caught this race).
+  await page.route('**/api/settings', async route => {
+    if (route.request().method() === 'GET') await new Promise(r => setTimeout(r, 1500));
+    await route.continue();
+  });
   await page.goto('/#settings');
   await page.fill('#delay-min', '90');
   await page.fill('#delay-max', '10');
   await page.click('#settings-form button[type=submit]');
   await expect(page.locator('#save-message')).toContainText('Delay');
+  await page.unrouteAll({ behavior: 'ignoreErrors' });
 
   await page.goto('/#raffles');
   const toggle = page.locator('#raffle-toggles input').first();

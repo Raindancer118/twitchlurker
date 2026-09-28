@@ -850,9 +850,13 @@ function confirmLogout() {
 // ---------- Settings ----------
 const splitList = v => v.split(/[\s,;]+/).map(s => s.trim()).filter(Boolean);
 
+// Set on the first edit; a (slow) reload must not overwrite what the user is typing.
+let settingsDirty = false;
+document.addEventListener('input', e => { if (e.target.closest('#settings-form')) settingsDirty = true; });
+
 async function loadSettings() {
   state.settings = await api('/api/settings');
-  fillSettings(state.settings);
+  if (!settingsDirty) fillSettings(state.settings);
   enter('settings');
 }
 
@@ -910,6 +914,7 @@ async function saveSettings(ev) {
   const msg = $('#save-message');
   try {
     state.settings = await api('/api/settings', { method: 'PUT', body });
+    settingsDirty = false;
     fillSettings(state.settings);
     msg.textContent = 'Saved. The bot applies the changes.';
     toast('Settings saved.');
