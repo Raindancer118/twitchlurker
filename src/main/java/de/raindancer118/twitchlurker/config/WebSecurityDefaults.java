@@ -15,7 +15,8 @@ final class WebSecurityDefaults {
     static void apply(HttpSecurity http) throws Exception {
         http.authorizeHttpRequests(a -> a
                         .requestMatchers("/actuator/health/**", "/actuator/health", "/denied.html", "/bye.html",
-                                "/fonts/**", "/icon.svg", "/favicon.ico", "/error").permitAll()
+                                "/fonts/**", "/icon.svg", "/favicon.ico", "/error",
+                                "/styles.css", "/app.css", "/motion.css").permitAll()
                         .anyRequest().authenticated())
                 .csrf(c -> c.spa())
                 .logout(l -> l.logoutUrl("/logout").logoutSuccessUrl("/bye.html"))

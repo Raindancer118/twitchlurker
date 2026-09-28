@@ -50,6 +50,14 @@ class TwitchlurkerApplicationTests {
     }
 
     @Test
+    void publicPagesGetTheirStylesWithoutLogin() throws Exception {
+        for (String path : new String[] {"/bye.html", "/denied.html", "/styles.css", "/app.css", "/motion.css", "/fonts/manrope.woff2", "/icon.svg"}) {
+            mvc.perform(get(path)).andExpect(status().isOk());
+        }
+        mvc.perform(get("/app.js")).andExpect(status().is3xxRedirection());
+    }
+
+    @Test
     void pagesRedirectToAuthentikAndApiAnswers401() throws Exception {
         mvc.perform(get("/")).andExpect(status().is3xxRedirection())
                 .andExpect(redirectedUrl("/oauth2/authorization/authentik"));
