@@ -81,6 +81,11 @@ def send_minute_watched_events(self, streamers, priority, chunk_size=3):
                     self.check_streamer_online(s)
 
             watching = [streamers[i] for i in core.choose_watching(streamers, priority, control["pinned"], time.time(), scouted=control.get("scouted"))]
+            chosen = [s.username for s in watching]
+            if chosen != control.get("last"):
+                control["last"] = chosen
+                summary = ", ".join(f"{s.username} ({core.watch_reason(s, control['pinned'], control.get('scouted'))})" for s in watching)
+                logger.info(f"Now watching: {summary or 'nobody'}", extra={"runner": True})
             for streamer in watching:
                 next_iteration = time.time() + 20 / len(watching)
                 try:

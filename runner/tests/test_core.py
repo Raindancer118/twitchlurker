@@ -302,3 +302,14 @@ def test_pick_directory_channels_prefers_campaign_channels():
         {"node": {"viewersCount": 500, "broadcaster": {"login": "mid"}}},
     ]}}}}
     assert core.pick_directory_channels(resp, exclude=set(), limit=2, prefer={"wizards_dnd"}) == ["wizards_dnd", "big"]
+
+
+def test_watch_reason():
+    def s(login, drops=False, streak=False):
+        return SimpleNamespace(username=login, drops_condition=lambda: drops,
+                               stream=SimpleNamespace(watch_streak_missing=streak, minute_watched=0))
+    assert core.watch_reason(s("lilly"), ["lilly", None], set()) == "pinned"
+    assert core.watch_reason(s("juice"), [None, None], {"juice"}) == "drop hunt"
+    assert core.watch_reason(s("x", drops=True), [None, None], set()) == "drops"
+    assert core.watch_reason(s("y", streak=True), [None, None], set()) == "watch streak"
+    assert core.watch_reason(s("z"), [None, None], set()) == "order"

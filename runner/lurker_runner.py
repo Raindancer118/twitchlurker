@@ -73,7 +73,7 @@ class JsonLogHandler(logging.Handler):
             event = getattr(record, "event", None)
             if event is not None:
                 emit({"t": "event", "event": str(event), "msg": msg})
-            emit({"t": "log", "level": record.levelname, "logger": record.name, "msg": msg})
+            emit({"t": "log", "level": record.levelname, "logger": "runner" if getattr(record, "runner", False) else record.name, "msg": msg})
         except Exception:
             pass
 

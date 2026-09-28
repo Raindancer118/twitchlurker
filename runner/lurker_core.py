@@ -199,6 +199,18 @@ def choose_watching(streamers: list, priority: list, pinned: list, now: float, m
     return chosen[:max_watch]
 
 
+def watch_reason(streamer, pinned, scouted) -> str:
+    if streamer.username in (pinned or []):
+        return "pinned"
+    if streamer.username in (scouted or ()):
+        return "drop hunt"
+    if streamer.drops_condition():
+        return "drops"
+    if streamer.stream.watch_streak_missing and streamer.stream.minute_watched < 7:
+        return "watch streak"
+    return "order"
+
+
 def follow_changes(followers, current, extra, scouted, blacklist):
     """Diff between Twitch's follow list and what the miner tracks. Extra and drop-scout channels are never removed."""
     followers = [f.lower() for f in followers or []]
