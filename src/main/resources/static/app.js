@@ -363,7 +363,7 @@ function renderNextDrop() {
     return;
   }
   const pct = Math.round(best.pct * 100);
-  box.innerHTML = `${icon}<p class="eyebrow">Next drop · ${esc(best.c.game || '')}</p><h2>${esc(best.d.name)}</h2><div class="progress-label"><span>${fmt(best.d.watched)} of ${fmt(best.d.required)} minutes</span><strong>${pct}%</strong></div><progress value="${pct}" max="100" aria-label="${esc(best.d.name)}, ${pct} Prozent"></progress><p class="meta">${fmt(best.d.required - best.d.watched)} minutes of watch time to go.</p><a class="text-link" href="#drops">Go to drops <svg><use href="#i-arrow"/></svg></a>`;
+  box.innerHTML = `${icon}<p class="eyebrow">Next drop · ${esc(best.c.game || '')}</p><h2>${esc(best.d.name)}</h2><div class="progress-label"><span>${fmt(best.d.watched)} of ${fmt(best.d.required)} minutes</span><strong>${pct}%</strong></div><progress value="${pct}" max="100" aria-label="${esc(best.d.name)}, ${pct} percent"></progress><p class="meta">${fmt(best.d.required - best.d.watched)} minutes of watch time to go.</p><a class="text-link" href="#drops">Go to drops <svg><use href="#i-arrow"/></svg></a>`;
 }
 
 async function loadOverview() {
@@ -669,9 +669,10 @@ function renderCatalogue() {
   $('#catalogue-grid').innerHTML = list.map(c => {
     const watched = c.watched || isWatched(c.game);
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
-    const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${fmt(r.minutes)} min</small></li>`).join('');
+    const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${r.subs ? `${fmt(r.subs)} sub${r.subs > 1 ? 's' : ''}` : `${fmt(r.minutes)} min`}</small></li>`).join('');
     const more = c.rewards.length > 6 ? `<li class="meta">+${c.rewards.length - 6} more</li>` : '';
-    const where = c.channels.length ? `Only on ${c.channels.length} channels` : 'On all drop streams';
+    const where = c.watchable === false ? 'Needs a bought or gifted sub, lurking can\'t earn it'
+      : c.channels.length ? `Only on ${c.channels.slice(0, 3).join(', ')}${c.channels.length > 3 ? ` +${c.channels.length - 3}` : ''}` : 'On all drop streams';
     const link = c.linked !== true && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Link account <svg><use href="#i-arrow"/></svg></a>` : '';
     return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Running' : 'Soon'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked === true ? '<span class="positive">✓ linked</span>' : c.linked === false ? 'not linked' : 'link status unknown'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Watching ✓' : 'Watch'}</button></div></div></article>`;
   }).join('') || '<div class="panel"><p class="meta">Nothing found.</p></div>';

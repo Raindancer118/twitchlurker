@@ -313,3 +313,39 @@ def test_watch_reason():
     assert core.watch_reason(s("x", drops=True), [None, None], set()) == "drops"
     assert core.watch_reason(s("y", streak=True), [None, None], set()) == "watch streak"
     assert core.watch_reason(s("z"), [None, None], set()) == "order"
+
+
+DND = [{"gameId": "509577", "gameDisplayName": "Dungeons & Dragons", "rewards": [
+    {"id": "d20", "name": "/dnd d20 Badge", "status": "ACTIVE", "allow": {"isEnabled": True, "channels": [{"name": "dnd"}]},
+     "timeBasedDrops": [{"requiredMinutesWatched": 30, "requiredSubs": 0, "benefitEdges": [{"benefit": {"name": "d20"}}]}]},
+    {"id": "amp", "name": "D&D Ampersand Badge", "status": "ACTIVE", "allow": {"isEnabled": False},
+     "timeBasedDrops": [{"requiredMinutesWatched": 0, "requiredSubs": 1, "benefitEdges": [{"benefit": {"name": "Ampersand"}}]}]},
+]}]
+
+
+def test_catalogue_flags_sub_only_campaigns_as_not_watchable():
+    cat = {c["id"]: c for c in core.community_catalogue(DND, [], {})}
+    assert cat["d20"]["watchable"] is True and cat["d20"]["rewards"][0]["subs"] == 0
+    assert cat["amp"]["watchable"] is False and cat["amp"]["rewards"][0]["subs"] == 1
+
+
+def test_drop_channel_plan_ignores_campaigns_you_cannot_watch_for():
+    cat = core.community_catalogue(DND, [], {})
+    # Only the d20 badge counts, and only on /dnd, so no random D&D stream may be picked.
+    assert core.drop_channel_plan(cat, "Dungeons & Dragons") == {"skip": None, "allowed": {"dnd"}, "prefer": {"dnd"}}
+    sub_only = [c for c in cat if c["id"] == "amp"]
+    assert core.drop_channel_plan(sub_only, "dungeons & dragons")["skip"] == "only sub-gift drops, nothing to earn by watching"
+    # Watched game without any known campaign: search the directory without restrictions.
+    assert core.drop_channel_plan(cat, "Minecraft") == {"skip": None, "allowed": None, "prefer": set()}
+    mixed = cat + [{**cat[0], "id": "open", "channels": []}]
+    assert core.drop_channel_plan(mixed, "Dungeons & Dragons") == {"skip": None, "allowed": None, "prefer": {"dnd"}}
+
+
+def test_stale_scouts():
+    plans = {"dungeons & dragons": {"skip": None, "allowed": {"dnd"}, "prefer": {"dnd"}},
+             "rust": {"skip": "only sub-gift drops, nothing to earn by watching", "allowed": None, "prefer": set()},
+             "minecraft": {"skip": None, "allowed": None, "prefer": set()}}
+    games = {"juicerewards": "Dungeons & Dragons", "dnd": "Dungeons & Dragons", "rusty": "Rust", "mc": "Minecraft",
+             "switched": "Just Chatting", "offline": None}
+    # Offline scouts stay (they may come back); streams on games nobody hunts anymore go.
+    assert sorted(core.stale_scouts(games, plans)) == ["juicerewards", "rusty", "switched"]

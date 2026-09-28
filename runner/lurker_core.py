@@ -240,21 +240,48 @@ def community_catalogue(data, watch_games, linked) -> list:
             allow = c.get("allow") or {}
             channels = [ch.get("name", "").lower() for ch in (allow.get("channels") or []) if ch and ch.get("name")] \
                 if allow.get("isEnabled") else []
-            rewards = []
+            rewards, watchable = [], False
             for drop in c.get("timeBasedDrops") or []:
+                minutes, subs = int(drop.get("requiredMinutesWatched") or 0), int(drop.get("requiredSubs") or 0)
+                # Sub-gift drops (e.g. "gift one sub during a stream") can't be earned by lurking.
+                watchable = watchable or subs == 0
                 for edge in drop.get("benefitEdges") or []:
                     b = (edge or {}).get("benefit") or {}
                     rewards.append({"name": b.get("name") or drop.get("name"), "image": b.get("imageAssetURL"),
-                                    "minutes": int(drop.get("requiredMinutesWatched") or 0)})
+                                    "minutes": minutes, "subs": subs})
             out.append({
                 "id": c.get("id"), "name": c.get("name"), "game": game["displayName"], "gameId": game["id"],
                 "image": _box_art(group.get("gameBoxArtURL")) or c.get("imageURL"), "status": c.get("status", "ACTIVE"),
                 "startAt": c.get("startAt"), "endAt": c.get("endAt"), "linked": (linked or {}).get(c.get("id")),
                 "linkUrl": c.get("accountLinkURL"), "channels": channels, "rewards": rewards,
-                "watched": game_watched(game, watch_games),
+                "watched": game_watched(game, watch_games), "watchable": watchable,
             })
     out.sort(key=lambda x: (not x["watched"], x["status"] != "ACTIVE", x["endAt"] or ""))
     return out
+
+
+def drop_channel_plan(catalogue, game_name: str) -> dict:
+    """Which directory streams count for a game: skip it, restrict to listed channels, or take any drop stream."""
+    name = (game_name or "").lower()
+    campaigns = [c for c in catalogue or [] if (c.get("game") or "").lower() == name]
+    earnable = [c for c in campaigns if c.get("watchable", True)]
+    if campaigns and not earnable:
+        return {"skip": "only sub-gift drops, nothing to earn by watching", "allowed": None, "prefer": set()}
+    listed = {ch for c in earnable for ch in c["channels"]}
+    allowed = listed if earnable and all(c["channels"] for c in earnable) else None
+    return {"skip": None, "allowed": allowed, "prefer": listed}
+
+
+def stale_scouts(games: dict, plans: dict) -> list:
+    """Scouted logins whose current stream no longer earns anything. games: login -> current game (None = offline)."""
+    stale = []
+    for login, game in games.items():
+        if game is None:
+            continue
+        plan = plans.get(game.lower())
+        if plan is None or plan["skip"] or (plan["allowed"] is not None and login not in plan["allowed"]):
+            stale.append(login)
+    return stale
 
 
 def scout_targets(watch_games, inventory, require_linked: bool) -> list:

@@ -162,7 +162,11 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await page.setViewportSize({ width: 1440, height: 1000 });
   await login(page);
   await go(page, 'drops');
-  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(3, { timeout: 15_000 });
+  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(4, { timeout: 15_000 });
+  // Sub-gift drops must not look like something lurking can earn; channel-restricted ones name their channels.
+  await expect(page.locator('.catalogue-item', { hasText: 'D&D Ampersand Badge' })).toContainText("lurking can't earn it");
+  await expect(page.locator('.catalogue-item', { hasText: 'D&D Ampersand Badge' })).toContainText('1 sub');
+  await expect(page.locator('.catalogue-item', { hasText: 'Minecraft Live 2026' })).toContainText('Only on papaplatte, gronkh');
   await page.fill('#drop-search', 'cape');
   await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(1);
   await expect(page.locator('#catalogue-grid')).toContainText('Minecraft Live 2026');

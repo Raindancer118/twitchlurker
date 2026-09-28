@@ -28,6 +28,9 @@ def catalogue():
         {"id": "val1", "name": "VCT Champions", "game": "VALORANT", "gameId": "516575", "image": None, "status": "UPCOMING",
          "startAt": "2026-10-10T00:00:00Z", "endAt": "2026-10-20T00:00:00Z", "linked": None, "linkUrl": None, "channels": [],
          "rewards": [{"name": "Gun Buddy", "image": None, "minutes": 240}]},
+        {"id": "dnd-amp", "name": "D&D Ampersand Badge", "game": "Dungeons & Dragons", "gameId": "509577", "image": None, "status": "ACTIVE",
+         "startAt": "2026-09-24T00:00:00Z", "endAt": "2026-10-21T00:00:00Z", "linked": None, "linkUrl": None, "channels": [],
+         "watchable": False, "rewards": [{"name": "Ampersand Badge", "image": None, "minutes": 0, "subs": 1}]},
     ]
     for c in items:
         c["watched"] = c["game"].lower() in watch

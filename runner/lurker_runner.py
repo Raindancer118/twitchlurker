@@ -173,6 +173,18 @@ def add_streamer(miner, login, source):
     return True
 
 
+def drop_scout(miner, login):
+    """Stop lurking a scouted channel that no longer earns drops (follows and manual channels are never touched)."""
+    if login not in scouted:
+        return
+    scouted.discard(login)
+    for s in list(miner.streamers):
+        if s.username == login:
+            miner.streamers.remove(s)
+    emit({"t": "event", "event": "STREAMER_REMOVED", "login": login})
+    emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Drop hunt: {login} no longer earns drops, stopped lurking"})
+
+
 def state_loop(miner, config):
     wait_until_running(miner)
     while miner.running:
@@ -269,17 +281,25 @@ def drops_loop(miner, config):
 
             if scouting:
                 known = {s.username for s in miner.streamers} | blacklist
-                for target in core.scout_targets(watch_games, inventory, require_linked):
+                targets = core.scout_targets(watch_games, inventory, require_linked)
+                plans = {t["displayName"].lower(): core.drop_channel_plan(catalogue, t["displayName"]) for t in targets}
+                games = {s.username: ((s.stream.game or {}).get("displayName") if s.is_online else None)
+                         for s in miner.streamers if s.username in scouted}
+                for login in core.stale_scouts(games, plans):
+                    drop_scout(miner, login)
+                for target in targets:
                     name = target["displayName"].lower()
+                    plan = plans[name]
+                    if plan["skip"]:
+                        emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Drops for {target['displayName']}: {plan['skip']}"})
+                        continue
+                    allowed = plan["allowed"]
                     live_for_game = [s for s in miner.streamers
-                                     if s.is_online and ((s.stream.game or {}).get("displayName") or "").lower() == name]
+                                     if s.is_online and ((s.stream.game or {}).get("displayName") or "").lower() == name
+                                     and (allowed is None or s.username in allowed)]
                     missing = per_game - len(live_for_game)
                     if missing <= 0:
                         continue
-                    # Only restrict to listed channels if every known campaign for the game is channel-restricted.
-                    game_campaigns = [c for c in catalogue if (c["game"] or "").lower() == name]
-                    listed = {ch for c in game_campaigns for ch in c["channels"]}
-                    allowed = listed if game_campaigns and all(c["channels"] for c in game_campaigns) else None
                     q = copy.deepcopy(query)
                     q["variables"]["slug"] = resolve_slug(twitch, target)
                     response = twitch.post_gql_request(q)
@@ -287,13 +307,14 @@ def drops_loop(miner, config):
                         emit({"t": "log", "level": "WARNING", "logger": "runner",
                               "msg": f"Drops for {target['displayName']}: Twitch has no category '{q['variables']['slug']}'"})
                         continue
-                    picked = core.pick_directory_channels(response, known, missing, allowed=allowed, prefer=listed)
+                    picked = core.pick_directory_channels(response, known, missing, allowed=allowed, prefer=plan["prefer"])
                     for login in picked:
                         if add_streamer(miner, login, "drops"):
                             known.add(login)
                     emit({"t": "log", "level": "INFO", "logger": "runner",
                           "msg": f"Drops for {target['displayName']}: "
-                                 + (f"lurking {', '.join(picked)}" if picked else "no live drop streams right now")})
+                                 + (f"lurking {', '.join(picked)}" if picked else
+                                    f"waiting for {', '.join(sorted(allowed))} to go live" if allowed else "no live drop streams right now")})
                     time.sleep(random.uniform(1, 3))
         except Exception as e:
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop hunt failed: {e}"})

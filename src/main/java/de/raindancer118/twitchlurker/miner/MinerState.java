@@ -23,11 +23,11 @@ public class MinerState {
 
     public record Drops(List<Campaign> campaigns, List<Claimed> claimed, Instant receivedAt) {}
 
-    public record Reward(String name, String image, int minutes) {}
+    public record Reward(String name, String image, int minutes, Integer subs) {}
 
     public record CatalogueCampaign(String id, String name, String game, String gameId, String image, String status,
                                     String startAt, String endAt, Boolean linked, String linkUrl, List<String> channels,
-                                    List<Reward> rewards, boolean watched) {}
+                                    List<Reward> rewards, boolean watched, Boolean watchable) {}
 
     /** access: "ok" (Android token works), "missing" (no drops login yet), "rejected" (token no longer accepted). */
     public record Catalogue(List<CatalogueCampaign> campaigns, String access, Instant receivedAt) {}
