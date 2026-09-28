@@ -1,0 +1,17 @@
+de/raindancer118/twitchlurker/raffle/IrcMessageTest.class
+de/raindancer118/twitchlurker/events/EventRepositoryTest.class
+de/raindancer118/twitchlurker/raffle/RaffleServiceTest.class
+de/raindancer118/twitchlurker/settings/SettingsStoreTest.class
+de/raindancer118/twitchlurker/raffle/RaffleServiceTest$Scheduled.class
+de/raindancer118/twitchlurker/raffle/RaffleDetectorTest.class
+de/raindancer118/twitchlurker/raffle/TwitchChatClientTest$1.class
+de/raindancer118/twitchlurker/support/MutableClock.class
+de/raindancer118/twitchlurker/miner/MinerSupervisorTest$1.class
+de/raindancer118/twitchlurker/config/SecurityConfigTest.class
+de/raindancer118/twitchlurker/twitch/TwitchAuthServiceTest.class
+de/raindancer118/twitchlurker/support/TestDb.class
+de/raindancer118/twitchlurker/miner/MinerSupervisorTest.class
+de/raindancer118/twitchlurker/raffle/FakeChat.class
+de/raindancer118/twitchlurker/TwitchlurkerApplicationTests.class
+de/raindancer118/twitchlurker/miner/MinerMessageHandlerTest.class
+de/raindancer118/twitchlurker/raffle/TwitchChatClientTest.class

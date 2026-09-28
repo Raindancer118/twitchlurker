@@ -1,0 +1,23 @@
+prototype/node_modules/
+prototype/.browsers/
+prototype/test-results/
+prototype/playwright-report/
+.serena/
+Project.md
+
+### twitchlurker ###
+data/
+.env
+*.env
+.env.*
+!.env.example
+Project.md
+.serena/
+prototype/node_modules/
+prototype/.browsers/
+prototype/test-results/
+prototype/astra.log
+__pycache__/
+e2e/node_modules/
+e2e/shots/
+e2e/test-results/

@@ -1,0 +1,9 @@
+target
+data
+prototype
+.git
+.serena
+.env
+*.env
+.env.*
+Project.md

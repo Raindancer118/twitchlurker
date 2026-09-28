@@ -1,0 +1,304 @@
+"""Runs Twitch-Channel-Points-Miner-v2 under the Java supervisor.
+
+Protocol: one JSON object per line on stdout (t = log | event | state | drops | status).
+Commands arrive as JSON lines on stdin ({"cmd": "add", "login": "..."}).
+Anything the miner prints directly ends up on stderr.
+"""
+import copy
+import json
+import logging
+import os
+import random
+import sys
+import threading
+import time
+import traceback
+
+import lurker_core as core
+
+_out = os.fdopen(os.dup(1), "w", encoding="utf-8", buffering=1)
+os.dup2(2, 1)
+sys.stdout = sys.stderr
+_emit_lock = threading.Lock()
+
+
+def emit(obj):
+    obj.setdefault("ts", time.time())
+    line = json.dumps(obj, ensure_ascii=False, default=str)
+    with _emit_lock:
+        _out.write(line + "\n")
+        _out.flush()
+
+
+from TwitchChannelPointsMiner import TwitchChannelPointsMiner  # noqa: E402
+from TwitchChannelPointsMiner.classes.Chat import ChatPresence  # noqa: E402
+from TwitchChannelPointsMiner.classes.entities.PubsubTopic import PubsubTopic  # noqa: E402
+from TwitchChannelPointsMiner.classes.entities.Stream import Stream  # noqa: E402
+from TwitchChannelPointsMiner.classes.entities.Streamer import Streamer, StreamerSettings  # noqa: E402
+from TwitchChannelPointsMiner.classes.Exceptions import StreamerDoesNotExistException  # noqa: E402
+from TwitchChannelPointsMiner.classes.Settings import Settings  # noqa: E402
+from TwitchChannelPointsMiner.classes.Twitch import Twitch  # noqa: E402
+from TwitchChannelPointsMiner.logger import LoggerSettings  # noqa: E402
+from TwitchChannelPointsMiner.utils import set_default_settings  # noqa: E402
+
+GAME_DIRECTORY = {
+    "operationName": "DirectoryPage_Game",
+    "extensions": {"persistedQuery": {"version": 1, "sha256Hash": "86bcceb4e8b1a51256ff8eed8bd8aae4acacf80d737efe904f84f3aeadf8cafd"}},
+    "variables": {
+        "limit": 30, "slug": None, "imageWidth": 50, "includeCostreaming": False,
+        "options": {
+            "broadcasterLanguages": [], "freeformTags": None, "includeRestricted": ["SUB_ONLY_LIVE"],
+            "recommendationsContext": {"platform": "web"}, "sort": "VIEWER_COUNT",
+            "systemFilters": ["DROPS_ENABLED"], "tags": [], "requestID": "JIRA-VXP-2397",
+        },
+        "sortTypeIsRecency": False,
+    },
+}
+
+last_watched = {}
+scouted = set()
+extra_logins = set()
+
+
+class JsonLogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            if record.levelno < logging.INFO:
+                return
+            msg = record.getMessage()
+            event = getattr(record, "event", None)
+            if event is not None:
+                emit({"t": "event", "event": str(event), "msg": msg})
+            emit({"t": "log", "level": record.levelname, "logger": record.name, "msg": msg})
+        except Exception:
+            pass
+
+
+def install_hooks():
+    orig_minute = Stream.update_minute_watched
+
+    def update_minute_watched(self):
+        last_watched[id(self)] = time.time()
+        return orig_minute(self)
+
+    Stream.update_minute_watched = update_minute_watched
+
+    orig_history = Streamer.update_history
+
+    def update_history(self, reason_code, earned, counter=1):
+        if reason_code != "Spent":
+            emit({"t": "event", "event": "POINTS", "login": self.username, "amount": earned,
+                  "reason": reason_code, "balance": self.channel_points})
+        return orig_history(self, reason_code, earned, counter)
+
+    Streamer.update_history = update_history
+
+    orig_bonus = Twitch.claim_bonus
+
+    def claim_bonus(self, streamer, claim_id):
+        result = orig_bonus(self, streamer, claim_id)
+        emit({"t": "event", "event": "BONUS", "login": streamer.username})
+        return result
+
+    Twitch.claim_bonus = claim_bonus
+
+    orig_moment = Twitch.claim_moment
+
+    def claim_moment(self, streamer, moment_id):
+        result = orig_moment(self, streamer, moment_id)
+        emit({"t": "event", "event": "MOMENT", "login": streamer.username})
+        return result
+
+    Twitch.claim_moment = claim_moment
+
+    orig_raid = Twitch.update_raid
+
+    def update_raid(self, streamer, raid):
+        joining = streamer.raid != raid
+        result = orig_raid(self, streamer, raid)
+        if joining:
+            emit({"t": "event", "event": "RAID", "login": streamer.username,
+                  "target": getattr(raid, "target_login", None)})
+        return result
+
+    Twitch.update_raid = update_raid
+
+    orig_claim_drop = Twitch.claim_drop
+
+    def claim_drop(self, drop):
+        ok = orig_claim_drop(self, drop)
+        if ok:
+            emit({"t": "event", "event": "DROP", "name": getattr(drop, "name", str(drop)),
+                  "benefit": getattr(drop, "benefit", None)})
+        return ok
+
+    Twitch.claim_drop = claim_drop
+
+
+def wait_until_running(miner):
+    while miner.ws_pool is None or not miner.streamers:
+        time.sleep(2)
+
+
+def add_streamer(miner, login, source):
+    login = login.lower().strip()
+    if any(s.username == login for s in miner.streamers):
+        return False
+    twitch = miner.twitch
+    streamer = Streamer(login)
+    try:
+        streamer.channel_id = twitch.get_channel_id(login)
+    except StreamerDoesNotExistException:
+        emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Kanal {login} existiert nicht"})
+        return False
+    streamer.settings = set_default_settings(streamer.settings, Settings.streamer_settings)
+    streamer.settings.bet = set_default_settings(streamer.settings.bet, Settings.streamer_settings.bet)
+    twitch.load_channel_points_context(streamer)
+    twitch.check_streamer_online(streamer)
+    miner.streamers.append(streamer)
+    miner.ws_pool.submit(PubsubTopic("video-playback-by-id", streamer=streamer))
+    if streamer.settings.follow_raid:
+        miner.ws_pool.submit(PubsubTopic("raid", streamer=streamer))
+    if streamer.settings.claim_moments:
+        miner.ws_pool.submit(PubsubTopic("community-moments-channel-v1", streamer=streamer))
+    if source == "drops":
+        scouted.add(login)
+    emit({"t": "event", "event": "STREAMER_ADDED", "login": login, "source": source})
+    return True
+
+
+def state_loop(miner, config):
+    wait_until_running(miner)
+    while miner.running:
+        now = time.time()
+        streamers = []
+        for s in list(miner.streamers):
+            snap = core.streamer_snapshot(s, last_watched, now, extra_logins)
+            if s.username in scouted:
+                snap["source"] = "drops"
+            streamers.append(snap)
+        emit({"t": "state", "user": config["login"], "session": miner.session_id,
+              "startedAt": miner.start_datetime.isoformat() if miner.start_datetime else None,
+              "streamers": streamers})
+        time.sleep(15)
+
+
+def inventory_loop(miner):
+    wait_until_running(miner)
+    while miner.running:
+        try:
+            inventory = miner.twitch._Twitch__get_inventory()
+            snap = core.inventory_snapshot(inventory)
+            emit({"t": "drops", **snap})
+        except Exception as e:
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Inventar nicht lesbar: {e}"})
+        time.sleep(300)
+
+
+def scout_loop(miner, config):
+    scout = config.get("dropScout") or {}
+    if not scout.get("enabled", True):
+        return
+    per_game = int(scout.get("channelsPerGame", 2))
+    require_linked = bool(scout.get("requireLinked", True))
+    blacklist = {b.lower() for b in config.get("blacklist", [])}
+    query = copy.deepcopy(GAME_DIRECTORY)
+    if config.get("gameDirectoryHash"):
+        query["extensions"]["persistedQuery"]["sha256Hash"] = config["gameDirectoryHash"]
+    wait_until_running(miner)
+    time.sleep(60)
+    while miner.running:
+        try:
+            twitch = miner.twitch
+            inv = core.inventory_snapshot(twitch._Twitch__get_inventory())
+            dashboard = twitch._Twitch__get_drops_dashboard()
+            games = core.games_to_scout(dashboard, core.finished_campaign_ids(inv), require_linked)
+            known = {s.username for s in miner.streamers} | blacklist
+            for game in games:
+                # Live campaign streamers we already track count towards the quota for this game.
+                live_for_game = [s for s in miner.streamers if s.is_online and (s.stream.game or {}).get("id") == game["id"]]
+                missing = per_game - len(live_for_game)
+                if missing <= 0:
+                    continue
+                q = copy.deepcopy(query)
+                q["variables"]["slug"] = core.game_slug(game)
+                response = twitch.post_gql_request(q)
+                for login in core.pick_directory_channels(response, known, missing):
+                    if add_streamer(miner, login, "drops"):
+                        known.add(login)
+                time.sleep(random.uniform(1, 3))
+        except Exception as e:
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Suche fehlgeschlagen: {e}"})
+        time.sleep(int(scout.get("intervalSeconds", 1200)))
+
+
+def command_loop(miner):
+    for line in sys.stdin:
+        try:
+            cmd = json.loads(line)
+        except ValueError:
+            continue
+        if cmd.get("cmd") == "add" and cmd.get("login"):
+            wait_until_running(miner)
+            extra_logins.add(cmd["login"].lower())
+            add_streamer(miner, cmd["login"], "extra")
+    # stdin closed: supervisor is gone, shut down cleanly.
+    miner.end(0, 0)
+
+
+def start_thread(target, name, *args):
+    def run():
+        try:
+            target(*args)
+        except SystemExit:
+            pass
+        except Exception:
+            emit({"t": "log", "level": "ERROR", "logger": "runner", "msg": f"{name}: {traceback.format_exc()}"})
+
+    t = threading.Thread(target=run, name=name, daemon=True)
+    t.start()
+    return t
+
+
+def main():
+    config = json.load(open(sys.argv[1], encoding="utf-8"))
+    os.makedirs(config["workDir"], exist_ok=True)
+    os.chdir(config["workDir"])
+    token = json.load(open(config["tokenFile"], encoding="utf-8"))
+    config["login"] = token["login"]
+    core.write_cookies(os.path.join("cookies", f"{token['login']}.pkl"), token["accessToken"], token["userId"])
+    extra_logins.update(s.lower() for s in config.get("streamers", []))
+
+    install_hooks()
+    miner = TwitchChannelPointsMiner(
+        username=token["login"],
+        claim_drops_startup=True,
+        priority=core.parse_priority(config.get("priority")),
+        logger_settings=LoggerSettings(save=False, console_level=logging.CRITICAL + 10, emoji=False, less=True),
+        streamer_settings=StreamerSettings(
+            make_predictions=False,
+            follow_raid=config.get("followRaid", True),
+            claim_drops=True,
+            claim_moments=config.get("claimMoments", True),
+            watch_streak=config.get("watchStreak", True),
+            community_goals=False,
+            chat=ChatPresence.NEVER,
+        ),
+    )
+    logging.getLogger().addHandler(JsonLogHandler())
+    emit({"t": "status", "status": "STARTING", "login": token["login"]})
+
+    start_thread(state_loop, "state", miner, config)
+    start_thread(inventory_loop, "inventory", miner)
+    start_thread(scout_loop, "drop-scout", miner, config)
+    start_thread(command_loop, "commands", miner)
+
+    miner.mine(
+        streamers=config.get("streamers", []),
+        blacklist=[b.lower() for b in config.get("blacklist", [])],
+        followers=config.get("followers", True),
+    )
+
+
+if __name__ == "__main__":
+    main()

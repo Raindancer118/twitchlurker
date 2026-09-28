@@ -1,0 +1,13 @@
+{
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.63.0"
+  },
+  "name": "twitchlurker-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "test": "playwright test",
+    "preview": "python3 -m http.server 4188 --bind 127.0.0.1"
+  }
+}

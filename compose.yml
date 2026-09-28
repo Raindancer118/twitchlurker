@@ -1,0 +1,22 @@
+services:
+  twitchlurker:
+    build: .
+    image: twitchlurker:latest
+    container_name: twitchlurker
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      COOKIE_SECURE: "true"
+    ports:
+      - "3085:8080"
+    volumes:
+      - lurker-data:/data
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 1g
+
+volumes:
+  lurker-data:

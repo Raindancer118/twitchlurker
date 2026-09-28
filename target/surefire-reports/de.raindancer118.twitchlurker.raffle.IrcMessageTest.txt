@@ -1,0 +1,4 @@
+-------------------------------------------------------------------------------
+Test set: de.raindancer118.twitchlurker.raffle.IrcMessageTest
+-------------------------------------------------------------------------------
+Tests run: 5, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 0.085 s -- in de.raindancer118.twitchlurker.raffle.IrcMessageTest
