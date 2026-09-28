@@ -199,44 +199,92 @@ def inventory_loop(miner):
         time.sleep(300)
 
 
-def scout_loop(miner, config):
+drops_wake = threading.Event()
+watch_games = []
+
+
+def drops_loop(miner, config):
+    """Every 10 min (or when the watchlist changes): publish the full campaign catalogue, then scout channels."""
     scout = config.get("dropScout") or {}
-    if not scout.get("enabled", True):
-        return
     per_game = int(scout.get("channelsPerGame", 2))
     require_linked = bool(scout.get("requireLinked", True))
+    scouting = scout.get("enabled", True)
     blacklist = {b.lower() for b in config.get("blacklist", [])}
     query = copy.deepcopy(GAME_DIRECTORY)
     if config.get("gameDirectoryHash"):
         query["extensions"]["persistedQuery"]["sha256Hash"] = config["gameDirectoryHash"]
     wait_until_running(miner)
-    time.sleep(60)
+    drops_wake.wait(45)
     while miner.running:
+        drops_wake.clear()
         try:
             twitch = miner.twitch
-            inv = core.inventory_snapshot(twitch._Twitch__get_inventory())
-            dashboard = twitch._Twitch__get_drops_dashboard()
-            games = core.games_to_scout(dashboard, core.finished_campaign_ids(inv), require_linked)
-            known = {s.username for s in miner.streamers} | blacklist
-            for game in games:
-                # Live campaign streamers we already track count towards the quota for this game.
-                live_for_game = [s for s in miner.streamers if s.is_online and (s.stream.game or {}).get("id") == game["id"]]
-                missing = per_game - len(live_for_game)
-                if missing <= 0:
-                    continue
-                q = copy.deepcopy(query)
-                q["variables"]["slug"] = core.game_slug(game)
-                response = twitch.post_gql_request(q)
-                for login in core.pick_directory_channels(response, known, missing):
-                    if add_streamer(miner, login, "drops"):
-                        known.add(login)
-                time.sleep(random.uniform(1, 3))
+            dashboard = twitch._Twitch__get_drops_dashboard() or []
+            relevant = [c for c in dashboard if c.get("status") in ("ACTIVE", "UPCOMING")]
+            details = {d["id"]: d for d in twitch._Twitch__get_campaigns_details(relevant) if d and d.get("id")}
+            catalogue = core.campaign_catalogue(dashboard, details, watch_games)
+            emit({"t": "campaigns", "campaigns": catalogue})
+            emit({"t": "log", "level": "INFO", "logger": "runner",
+                  "msg": f"Drop-Katalog: {len(catalogue)} Kampagnen, Details für {len(details)}, beobachtet: {', '.join(watch_games) or '–'}"})
+
+            if scouting:
+                inv = core.inventory_snapshot(twitch._Twitch__get_inventory())
+                games = core.games_to_scout(dashboard, core.finished_campaign_ids(inv), require_linked, watch_games)
+                known = {s.username for s in miner.streamers} | blacklist
+                for game in games:
+                    live_for_game = [s for s in miner.streamers if s.is_online and (s.stream.game or {}).get("id") == game["id"]]
+                    missing = per_game - len(live_for_game)
+                    if missing <= 0:
+                        continue
+                    # Channel-restricted campaigns only count on their listed channels.
+                    allowed = set()
+                    for c in catalogue:
+                        if c["gameId"] == game["id"] and c["status"] == "ACTIVE":
+                            if not c["channels"]:
+                                allowed = set()
+                                break
+                            allowed.update(c["channels"])
+                    q = copy.deepcopy(query)
+                    q["variables"]["slug"] = core.game_slug(game)
+                    response = twitch.post_gql_request(q)
+                    for login in core.pick_directory_channels(response, known, missing, allowed=allowed or None):
+                        if add_streamer(miner, login, "drops"):
+                            known.add(login)
+                    time.sleep(random.uniform(1, 3))
         except Exception as e:
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop-Suche fehlgeschlagen: {e}"})
-        time.sleep(int(scout.get("intervalSeconds", 1200)))
+        drops_wake.wait(int(scout.get("intervalSeconds", 600)))
+
+def sync_follows(miner, config):
+    if not config.get("followers", True):
+        return
+    with follow_lock:
+        followers = miner.twitch.get_followers()
+        blacklist = {b.lower() for b in config.get("blacklist", [])}
+        current = [s.username for s in miner.streamers]
+        added, removed = core.follow_changes(followers, current, extra_logins, scouted, blacklist)
+        for login in removed:
+            for s in list(miner.streamers):
+                if s.username == login:
+                    miner.streamers.remove(s)
+            emit({"t": "event", "event": "STREAMER_REMOVED", "login": login})
+        for login in added:
+            add_streamer(miner, login, "follow")
+        if added or removed:
+            emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Follows aktualisiert: +{len(added)} / -{len(removed)}"})
 
 
-def command_loop(miner):
+def follow_loop(miner, config):
+    wait_until_running(miner)
+    while miner.running:
+        time.sleep(300)
+        try:
+            sync_follows(miner, config)
+        except Exception as e:
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Follows nicht lesbar: {e}"})
+
+
+def command_loop(miner, config):
     for line in sys.stdin:
         try:
             cmd = json.loads(line)
@@ -246,6 +294,12 @@ def command_loop(miner):
             wait_until_running(miner)
             extra_logins.add(cmd["login"].lower())
             add_streamer(miner, cmd["login"], "extra")
+        elif cmd.get("cmd") == "refresh-follows":
+            wait_until_running(miner)
+            start_thread(sync_follows, "follow-refresh", miner, config)
+        elif cmd.get("cmd") == "watch-games":
+            watch_games[:] = [str(g) for g in cmd.get("games") or []]
+            drops_wake.set()
         elif cmd.get("cmd") == "slots":
             lurker_watch.control["pinned"] = core.normalize_slots(cmd.get("slots"))
             emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Slots: {lurker_watch.control['pinned']}"})
@@ -280,6 +334,7 @@ def main():
     core.write_cookies(os.path.join("cookies", f"{token['login']}.pkl"), token["accessToken"], token["userId"])
     extra_logins.update(s.lower() for s in config.get("streamers", []))
     lurker_watch.control["pinned"] = core.normalize_slots(config.get("slots"))
+    watch_games[:] = [str(g) for g in (config.get("dropScout") or {}).get("games", [])]
     order[:] = [o.lower() for o in config.get("order", [])]
 
     install_hooks()
@@ -303,8 +358,9 @@ def main():
 
     start_thread(state_loop, "state", miner, config)
     start_thread(inventory_loop, "inventory", miner)
-    start_thread(scout_loop, "drop-scout", miner, config)
-    start_thread(command_loop, "commands", miner)
+    start_thread(drops_loop, "drops", miner, config)
+    start_thread(command_loop, "commands", miner, config)
+    start_thread(follow_loop, "follows", miner, config)
     start_thread(lambda: (wait_until_running(miner), core.apply_order(miner.streamers, order)), "initial-order")
 
     miner.mine(

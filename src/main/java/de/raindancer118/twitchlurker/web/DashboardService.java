@@ -45,7 +45,8 @@ public class DashboardService {
     public record ChannelDetail(Channel channel, List<SnapshotRepository.Point> history, List<LurkerEvent> events) {}
 
     public record Drops(List<MinerState.Campaign> campaigns, List<MinerState.Claimed> claimed, Instant updatedAt,
-                        List<MinerState.Streamer> scouted, boolean scoutEnabled) {}
+                        List<MinerState.Streamer> scouted, boolean scoutEnabled, List<MinerState.CatalogueCampaign> catalogue,
+                        Instant catalogueUpdatedAt, List<String> watchGames) {}
 
     public record Raffles(RaffleService.Status status, List<RaffleEntry> entries, long joinedToday, long wonTotal) {}
 
@@ -196,7 +197,9 @@ public class DashboardService {
         var scouted = state.snapshot().map(s -> s.streamers().stream().filter(st -> "drops".equals(st.source())).toList())
                 .orElse(List.of());
         return new Drops(d.map(MinerState.Drops::campaigns).orElse(List.of()), d.map(MinerState.Drops::claimed).orElse(List.of()),
-                d.map(MinerState.Drops::receivedAt).orElse(null), scouted, settings.get().dropScout().enabled());
+                d.map(MinerState.Drops::receivedAt).orElse(null), scouted, settings.get().dropScout().enabled(),
+                state.catalogue().map(MinerState.Catalogue::campaigns).orElse(List.of()),
+                state.catalogue().map(MinerState.Catalogue::receivedAt).orElse(null), settings.get().dropScout().games());
     }
 
     public Raffles raffles() {

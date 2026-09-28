@@ -143,3 +143,44 @@ test('slots, order and motion', async ({ page }) => {
 
   expect(errors).toEqual([]);
 });
+
+test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await login(page);
+  await go(page, 'drops');
+  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(3, { timeout: 15_000 });
+  await page.fill('#drop-search', 'cape');
+  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(1);
+  await expect(page.locator('#catalogue-grid')).toContainText('Minecraft Live 2026');
+  await page.fill('#drop-search', '');
+  await page.selectOption('#drop-filter', 'upcoming');
+  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(1);
+  await page.selectOption('#drop-filter', 'all');
+
+  await page.fill('#watch-input', 'Minecraft');
+  await page.click('#watch-form button[type=submit]');
+  await expect(page.locator('#watch-chips')).toContainText('Minecraft');
+  await expect(page.locator('#catalogue-grid .catalogue-item.watched')).toHaveCount(1, { timeout: 10_000 });
+  await page.screenshot({ path: 'shots/drops-catalogue.png', fullPage: true });
+  await page.click('[data-unwatch="Minecraft"]');
+  await expect(page.locator('#watch-chips')).not.toContainText('Minecraft');
+
+  await go(page, 'channels');
+  await page.click('#refresh-follows');
+  await expect(page.locator('#toast')).toContainText('Follows werden abgeglichen');
+  await expect(page.locator('#channel-list .channel-row[data-login="newfollow"]')).toHaveCount(1, { timeout: 20_000 });
+
+  await go(page, 'settings');
+  await expect(page.locator('#lurk-message')).toHaveValue('!lurk');
+  await page.fill('#lurk-message', '!lurk bin im Hintergrund');
+  await page.selectOption('#lurk-repeat', '120');
+  await page.click('#settings-form button[type=submit]');
+  await expect(page.locator('#toast')).toContainText('gespeichert');
+  await page.reload();
+  await go(page, 'settings');
+  await expect(page.locator('#lurk-message')).toHaveValue('!lurk bin im Hintergrund');
+  await expect(page.locator('#lurk-repeat')).toHaveValue('120');
+  expect(errors).toEqual([]);
+});

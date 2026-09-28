@@ -119,6 +119,14 @@ public class AppConfig {
     }
 
     @Bean
+    de.raindancer118.twitchlurker.raffle.LurkAnnouncer lurkAnnouncer(SettingsStore settings, MinerState state, TwitchChatClient chat,
+                                                                     EventService events, EventRepository eventRepository,
+                                                                     RaffleService.Delayer delayer, Clock clock) {
+        return new de.raindancer118.twitchlurker.raffle.LurkAnnouncer(settings, state, chat, events, eventRepository, delayer, clock,
+                new SecureRandom());
+    }
+
+    @Bean
     RaffleService raffleService(SettingsStore settings, TwitchAuthService auth, MinerState state, RaffleRepository raffles,
                                 EventService events, TwitchChatClient chat, RaffleService.Delayer delayer, Clock clock) {
         return new RaffleService(settings, auth::token, state, raffles, events, chat, delayer, clock, new SecureRandom());

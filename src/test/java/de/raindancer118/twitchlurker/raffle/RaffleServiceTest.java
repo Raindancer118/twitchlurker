@@ -139,12 +139,23 @@ class RaffleServiceTest {
     @Test
     void disabledGloballyOrPerChannelOrWithoutChatScope() {
         var s = settings.get();
+        // Raffles off for one channel: still in its chat (for !lurk), but announcements there are ignored.
         settings.save(s.withRaffle(new de.raindancer118.twitchlurker.settings.LurkerSettings.Raffle(true, null, null,
                 List.of("papaplatte"), null, null, null)));
         service.sync();
-        assertThat(chat.channels).isEmpty();
+        assertThat(chat.channels).containsExactly("papaplatte");
+        announce("papaplatte");
+        assertThat(scheduled).isEmpty();
 
+        // Raffles off entirely but !lurk on: chat stays open, still no raffle entries.
         settings.save(s.withRaffle(new de.raindancer118.twitchlurker.settings.LurkerSettings.Raffle(false, null, null, null, null, null, null)));
+        service.sync();
+        assertThat(chat.connected).isTrue();
+        announce("papaplatte");
+        assertThat(scheduled).isEmpty();
+
+        // Neither raffles nor lurk: chat closes.
+        settings.save(settings.get().withLurk(new de.raindancer118.twitchlurker.settings.LurkerSettings.Lurk(false, null, null)));
         service.sync();
         assertThat(chat.connected).isFalse();
 

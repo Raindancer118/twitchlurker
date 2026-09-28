@@ -37,6 +37,11 @@ public class EventRepository {
                 .params(login, since.toEpochMilli(), limit).query(ROW).list();
     }
 
+    public java.util.Optional<LurkerEvent> last(String type, String login) {
+        return jdbc.sql("SELECT * FROM events WHERE type = ? AND login = ? ORDER BY ts DESC, id DESC LIMIT 1")
+                .params(type, login).query(ROW).optional();
+    }
+
     public long sumPoints(Instant since) {
         return jdbc.sql("SELECT COALESCE(SUM(amount), 0) FROM events WHERE type = 'POINTS' AND ts >= ?")
                 .param(since.toEpochMilli()).query(Long.class).single();

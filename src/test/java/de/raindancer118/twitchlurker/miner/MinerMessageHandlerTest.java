@@ -61,14 +61,16 @@ class MinerMessageHandlerTest {
         handler.handleStdout("{\"t\":\"event\",\"event\":\"BONUS\",\"login\":\"papaplatte\"}");
         handler.handleStdout("{\"t\":\"event\",\"event\":\"RAID\",\"login\":\"papaplatte\",\"target\":\"zarbex\"}");
         handler.handleStdout("{\"t\":\"event\",\"event\":\"DROP\",\"name\":\"Hazmat\",\"benefit\":\"Hazmat Suit\"}");
+        handler.handleStdout("{\"t\":\"event\",\"event\":\"STREAMER_REMOVED\",\"login\":\"oldfollow\"}");
         handler.handleStdout("{\"t\":\"event\",\"event\":\"STREAMER_ONLINE\",\"msg\":\"Streamer(username=zarbex, channel_id=2, channel_points=1k) is Online!\"}");
         var recent = events.recent(10);
-        assertThat(recent).extracting(LurkerEvent::type).containsExactly("ONLINE", "DROP", "RAID", "BONUS", "POINTS");
+        assertThat(recent).extracting(LurkerEvent::type).containsExactly("ONLINE", "REMOVED", "DROP", "RAID", "BONUS", "POINTS");
         assertThat(recent.get(0).login()).isEqualTo("zarbex");
-        assertThat(recent.get(1).detail()).isEqualTo("Hazmat Suit");
-        assertThat(recent.get(2).detail()).isEqualTo("zarbex");
-        assertThat(recent.get(4).amount()).isEqualTo(10L);
-        assertThat(recent.get(4).detail()).isEqualTo("WATCH");
+        assertThat(recent.get(1).login()).isEqualTo("oldfollow");
+        assertThat(recent.get(2).detail()).isEqualTo("Hazmat Suit");
+        assertThat(recent.get(3).detail()).isEqualTo("zarbex");
+        assertThat(recent.get(5).amount()).isEqualTo(10L);
+        assertThat(recent.get(5).detail()).isEqualTo("WATCH");
     }
 
     @Test
@@ -76,6 +78,14 @@ class MinerMessageHandlerTest {
         handler.handleStdout("{\"t\":\"drops\",\"campaigns\":[{\"id\":\"c\",\"name\":\"Rust\",\"game\":\"Rust\",\"image\":null,\"endsAt\":\"2026-10-01T00:00:00Z\",\"linked\":true,"
                 + "\"drops\":[{\"id\":\"d\",\"name\":\"Suit\",\"image\":null,\"required\":120,\"watched\":60,\"claimed\":false}]}],\"claimed\":[]}");
         assertThat(state.drops().orElseThrow().campaigns().getFirst().drops().getFirst().watched()).isEqualTo(60);
+
+        handler.handleStdout("{\"t\":\"campaigns\",\"campaigns\":[{\"id\":\"mc1\",\"name\":\"Minecraft Live\",\"game\":\"Minecraft\",\"gameId\":\"27471\","
+                + "\"image\":null,\"status\":\"ACTIVE\",\"startAt\":\"2026-09-27T00:00:00Z\",\"endAt\":\"2026-10-05T00:00:00Z\",\"linked\":false,"
+                + "\"linkUrl\":\"https://link\",\"channels\":[\"gronkh\"],\"rewards\":[{\"name\":\"Cape\",\"image\":null,\"minutes\":60}],\"watched\":true}]}");
+        var catalogue = state.catalogue().orElseThrow();
+        assertThat(catalogue.campaigns()).hasSize(1);
+        assertThat(catalogue.campaigns().getFirst().rewards().getFirst().minutes()).isEqualTo(60);
+        assertThat(catalogue.campaigns().getFirst().watched()).isTrue();
 
         handler.handleStdout("{\"t\":\"log\",\"level\":\"INFO\",\"logger\":\"x\",\"msg\":\"Loading data for 12 streamers\"}");
         handler.handleStdout("not json at all");

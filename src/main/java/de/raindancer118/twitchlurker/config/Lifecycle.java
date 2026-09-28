@@ -31,9 +31,12 @@ public class Lifecycle {
     private final SnapshotRepository snapshots;
     private final RaffleRepository raffleRepo;
     private final Clock clock;
+    private final de.raindancer118.twitchlurker.raffle.LurkAnnouncer lurk;
 
     public Lifecycle(MinerSupervisor supervisor, TwitchAuthService auth, RaffleService raffles, EventRepository events,
-                     SnapshotRepository snapshots, RaffleRepository raffleRepo, Clock clock) {
+                     SnapshotRepository snapshots, RaffleRepository raffleRepo, Clock clock,
+                     de.raindancer118.twitchlurker.raffle.LurkAnnouncer lurk) {
+        this.lurk = lurk;
         this.supervisor = supervisor;
         this.auth = auth;
         this.raffles = raffles;
@@ -74,6 +77,15 @@ public class Lifecycle {
             raffles.sync();
         } catch (RuntimeException e) {
             log.warn("Raffle chat sync failed", e);
+        }
+    }
+
+    @Scheduled(initialDelay = 30_000, fixedDelay = 20_000)
+    void greetLurkedChannels() {
+        try {
+            lurk.tick();
+        } catch (RuntimeException e) {
+            log.warn("Lurk greeting failed", e);
         }
     }
 

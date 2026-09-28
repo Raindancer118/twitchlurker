@@ -111,21 +111,60 @@ def finished_campaign_ids(inventory_snap: dict) -> set:
     }
 
 
-def games_to_scout(dashboard: list, finished_campaign_ids: set, require_linked: bool) -> list:
-    games, seen = [], set()
+def game_watched(game: dict, watch_games) -> bool:
+    wanted = {w.strip().lower() for w in watch_games or [] if w and w.strip()}
+    if not wanted or not game:
+        return False
+    name = (game.get("displayName") or game.get("name") or "").lower()
+    return name in wanted or game_slug(game) in wanted
+
+
+def games_to_scout(dashboard: list, finished_campaign_ids: set, require_linked: bool, watch_games=None) -> list:
+    """Games with an active campaign worth farming; games on the watchlist come first and don't need a linked account."""
+    watched, others, seen = [], [], set()
     for c in dashboard or []:
         if c.get("status") != "ACTIVE" or c.get("id") in finished_campaign_ids:
             continue
-        if require_linked and not (c.get("self") or {}).get("isAccountConnected"):
-            continue
         game = c.get("game") or {}
-        if game.get("id") and game["id"] not in seen:
-            seen.add(game["id"])
-            games.append(game)
-    return games
+        if not game.get("id") or game["id"] in seen:
+            continue
+        is_watched = game_watched(game, watch_games)
+        if not is_watched and require_linked and not (c.get("self") or {}).get("isAccountConnected"):
+            continue
+        seen.add(game["id"])
+        (watched if is_watched else others).append(game)
+    return watched + others
 
 
-def pick_directory_channels(response: dict, exclude: set, limit: int) -> list:
+def campaign_catalogue(dashboard: list, details: dict, watch_games=None) -> list:
+    """Every active or upcoming campaign, enriched with rewards and channel restrictions for the dashboard."""
+    out = []
+    for c in dashboard or []:
+        if c.get("status") not in ("ACTIVE", "UPCOMING"):
+            continue
+        d = (details or {}).get(c["id"]) or {}
+        game = c.get("game") or {}
+        allow = d.get("allow") or {}
+        channels = [ch.get("name", "").lower() for ch in (allow.get("channels") or []) if ch and ch.get("name")]
+        rewards = []
+        for drop in d.get("timeBasedDrops") or []:
+            for edge in drop.get("benefitEdges") or []:
+                b = (edge or {}).get("benefit") or {}
+                rewards.append({"name": b.get("name") or drop.get("name"), "image": b.get("imageAssetURL"),
+                                "minutes": int(drop.get("requiredMinutesWatched") or 0)})
+        out.append({
+            "id": c["id"], "name": c.get("name"), "game": game.get("displayName") or game.get("name"),
+            "gameId": game.get("id"), "image": _box_art(game.get("boxArtURL")), "status": c.get("status"),
+            "startAt": c.get("startAt"), "endAt": c.get("endAt"),
+            "linked": bool((c.get("self") or {}).get("isAccountConnected")),
+            "linkUrl": c.get("accountLinkURL") or d.get("accountLinkURL"),
+            "channels": channels, "rewards": rewards, "watched": game_watched(game, watch_games),
+        })
+    out.sort(key=lambda x: (not x["watched"], x["status"] != "ACTIVE", x["endAt"] or ""))
+    return out
+
+
+def pick_directory_channels(response: dict, exclude: set, limit: int, allowed=None) -> list:
     game = ((response or {}).get("data") or {}).get("game") or {}
     edges = ((game.get("streams") or {}).get("edges")) or []
     nodes = [e["node"] for e in edges if e.get("node") and e["node"].get("broadcaster")]
@@ -133,6 +172,8 @@ def pick_directory_channels(response: dict, exclude: set, limit: int) -> list:
     picked = []
     for n in nodes:
         login = n["broadcaster"]["login"].lower()
+        if allowed and login not in allowed:
+            continue
         if login not in exclude and login not in picked:
             picked.append(login)
         if len(picked) >= limit:
@@ -194,3 +235,14 @@ def choose_watching(streamers: list, priority: list, pinned: list, now: float, m
             with_multiplier = [i for i in online if streamers[i].viewer_has_points_multiplier()]
             add(sorted(with_multiplier, key=lambda i: streamers[i].total_points_multiplier(), reverse=True))
     return chosen[:max_watch]
+
+
+def follow_changes(followers, current, extra, scouted, blacklist):
+    """Diff between Twitch's follow list and what the miner tracks. Extra and drop-scout channels are never removed."""
+    followers = [f.lower() for f in followers or []]
+    if not followers:
+        return [], []
+    follow_set, current_set = set(followers), set(current)
+    added = [f for f in followers if f not in current_set and f not in blacklist]
+    removed = [c for c in current if c not in follow_set and c not in extra and c not in scouted]
+    return added, removed

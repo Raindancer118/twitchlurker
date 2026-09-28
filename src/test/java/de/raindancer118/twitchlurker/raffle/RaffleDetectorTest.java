@@ -63,6 +63,24 @@ class RaffleDetectorTest {
     }
 
     @Test
+    void modCommandInvocationsAreNotAnnouncements() {
+        // Real case (28.09.2026): a mod typed "!raffle" to start a raffle; the bot answered "!raffle", which only mods may use.
+        assertThat(detector.detectRaffle(msg("kangatato", "moderator/1", "!raffle"))).isEmpty();
+        assertThat(detector.detectRaffle(msg("kangatato", "moderator/1", "!raffle 500 60"))).isEmpty();
+        assertThat(detector.detectRaffle(msg("papaplatte", "broadcaster/1", "!giveaway start Skins"))).isEmpty();
+    }
+
+    @Test
+    void prefersTheCommandViewersAreToldToType() {
+        var mentionsBoth = msg("streamelements", "", "Raffle gestartet (Mods nutzen !raffle stop). Type !join to enter!");
+        assertThat(detector.detectRaffle(mentionsBoth)).map(RaffleDetector.Trigger::command).hasValue("!join");
+        var quoted = msg("streamelements", "", "A Raffle has begun for 1000 Points it will end in 120 Seconds. Enter by typing \"!join\"");
+        assertThat(detector.detectRaffle(quoted)).map(RaffleDetector.Trigger::command).hasValue("!join");
+        var german = msg("nightbot", "moderator/1", "Gewinnspiel läuft! Mit !gw seid ihr dabei");
+        assertThat(detector.detectRaffle(german)).map(RaffleDetector.Trigger::command).hasValue("!gw");
+    }
+
+    @Test
     void detectsWin() {
         assertThat(detector.isWinFor(msg("streamelements", "", "The raffle has ended and tomlurkt won 500 points"))).isTrue();
         assertThat(detector.isWinFor(msg("streamelements", "", "Gewinner der Verlosung: @TomLurkt, Glückwunsch!"))).isTrue();

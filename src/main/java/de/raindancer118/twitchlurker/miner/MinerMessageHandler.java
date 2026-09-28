@@ -22,6 +22,7 @@ public class MinerMessageHandler {
     private final JsonMapper json;
     private final ObjectReader snapshotReader;
     private final ObjectReader dropsReader;
+    private final ObjectReader catalogueReader;
     private final MinerState state;
     private final EventService events;
     private final SnapshotRepository snapshots;
@@ -33,6 +34,7 @@ public class MinerMessageHandler {
         this.json = json;
         this.snapshotReader = json.readerFor(MinerState.Snapshot.class).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         this.dropsReader = json.readerFor(MinerState.Drops.class).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
+        this.catalogueReader = json.readerFor(MinerState.Catalogue.class).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         this.state = state;
         this.events = events;
         this.snapshots = snapshots;
@@ -56,12 +58,21 @@ public class MinerMessageHandler {
             switch (node.path("t").asString("")) {
                 case "state" -> onState(node);
                 case "drops" -> onDrops(node);
+                case "campaigns" -> {
+                    MinerState.Catalogue parsed = catalogueReader.readValue(node);
+                    var catalogue = new MinerState.Catalogue(parsed.campaigns(), clock.instant());
+                    state.update(catalogue);
+                    bus.publish("campaigns", catalogue);
+                }
                 case "event" -> onEvent(node);
                 case "log" -> {
                     var entry = new MinerState.LogLine(clock.instant(), node.path("level").asString("INFO"),
                             node.path("logger").asString("miner"), node.path("msg").asString(""));
                     state.log(entry);
                     bus.publish("log", entry);
+                    if ("runner".equals(entry.source())) {
+                        log.info("runner: {}", entry.msg());
+                    }
                 }
                 case "status" -> bus.publish("status", node);
                 default -> raw("RAW", line);
@@ -112,6 +123,7 @@ public class MinerMessageHandler {
                 events.record("DROP", null, null, benefit != null && !benefit.isBlank() ? benefit : node.path("name").asString(null));
             }
             case "STREAMER_ADDED" -> events.record("ADDED", login, null, node.path("source").asString(null));
+            case "STREAMER_REMOVED" -> events.record("REMOVED", login, null, null);
             case "STREAMER_ONLINE" -> fromRepr(node, "ONLINE");
             case "STREAMER_OFFLINE" -> fromRepr(node, "OFFLINE");
             default -> {

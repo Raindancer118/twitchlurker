@@ -261,6 +261,20 @@ progress::-moz-progress-bar{background:linear-gradient(90deg,#9146ff,#bf94ff);bo
 .scouted li{background:var(--surface-soft);border-radius:var(--r-pill);padding:6px 12px;font-size:.84rem;font-weight:700}
 .scouted li.live{background:color-mix(in srgb,#9146ff 16%,var(--surface));color:var(--purple)}
 
+.watchlist{margin-bottom:22px}
+.chips{list-style:none;margin:10px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:8px}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:4px 4px 4px 14px;border-radius:var(--r-pill);background:color-mix(in srgb,#9146ff 14%,var(--surface));color:var(--purple);font-weight:800}
+.chip-remove{min-height:32px;width:32px;padding:0;border-radius:50%;background:transparent;color:inherit;font-size:1.1rem}
+.chip-remove:hover{background:rgb(145 70 255 / .18)}
+.catalogue-item.watched{box-shadow:0 0 0 2px #9146ff,var(--shadow-soft)}
+.reward-list{list-style:none;margin:8px 0 10px;padding:0;display:grid;gap:6px}
+.reward-list li{display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:8px;align-items:center;font-size:.86rem;font-weight:700}
+.reward-list li img{width:28px;height:28px;border-radius:8px;object-fit:cover;background:var(--surface-soft)}
+.reward-list li:not(:has(img)){grid-template-columns:minmax(0,1fr) auto}
+.reward-list small{color:var(--ink-dim);font-weight:700}
+.watch-toggle[aria-pressed=true]{background:#9146ff;color:#fff}
+#catalogue-meta{margin:0 0 12px}
+
 /* Raffles */
 .raffle-layout{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:20px;align-items:start}
 .stack{display:grid;gap:20px}

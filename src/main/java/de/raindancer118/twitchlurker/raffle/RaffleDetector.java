@@ -19,6 +19,12 @@ public class RaffleDetector {
             "\\b(ended|is over|closed|beendet|vorbei|won|gewonnen|winners? (is|are)|gewinner (ist|sind))\\b|gewinner:",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
     private static final Pattern COMMAND = Pattern.compile("(?<![\\w!])!([a-z0-9_]+)", Pattern.CASE_INSENSITIVE);
+    private static final Pattern STRONG_HINT = Pattern.compile(
+            "(type|typing|tipp\\w*|schreib\\w*|write|enter by|join by|zum mitmachen|to join|to enter)\\W{0,4}$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern WEAK_HINT = Pattern.compile("\\b(mit|with|use|nutz\\w*|per)\\W{0,4}$",
+            Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
+    private static final Pattern MOD_CONTEXT = Pattern.compile("\\bmod(s|erator\\w*)?\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern WIN_WORDS = Pattern.compile(
             "\\b(won|wins|winner|gewonnen|gewinner|gewinnt|congrats?|congratulations|glückwunsch|gratulation)\\b",
             Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE);
@@ -42,17 +48,30 @@ public class RaffleDetector {
 
     public Optional<Trigger> detectRaffle(IrcMessage msg) {
         String text = msg.text();
-        if (text == null || !trustedSender(msg) || !RAFFLE_WORDS.matcher(text).find() || CLOSED_WORDS.matcher(text).find()) {
+        // A message that *is* a command ("!raffle 500") is a mod starting something, not an invitation to viewers.
+        if (text == null || text.strip().startsWith("!") || !trustedSender(msg)
+                || !RAFFLE_WORDS.matcher(text).find() || CLOSED_WORDS.matcher(text).find()) {
             return Optional.empty();
         }
+        String best = null;
+        int bestScore = Integer.MIN_VALUE;
         Matcher m = COMMAND.matcher(text);
         while (m.find()) {
             String cmd = m.group(1).toLowerCase(Locale.ROOT);
-            if (joinCommands.contains(cmd)) {
-                return Optional.of(new Trigger("!" + cmd));
+            if (!joinCommands.contains(cmd)) {
+                continue;
+            }
+            String before = text.substring(Math.max(0, m.start() - 25), m.start());
+            int score = STRONG_HINT.matcher(before).find() ? 2 : WEAK_HINT.matcher(before).find() ? 1 : 0;
+            if (MOD_CONTEXT.matcher(before).find()) {
+                score -= 3;
+            }
+            if (score > bestScore) {
+                bestScore = score;
+                best = cmd;
             }
         }
-        return Optional.empty();
+        return best == null || bestScore < 0 ? Optional.empty() : Optional.of(new Trigger("!" + best));
     }
 
     public boolean isWinFor(IrcMessage msg) {

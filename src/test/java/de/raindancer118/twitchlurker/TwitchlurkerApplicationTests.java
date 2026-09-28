@@ -151,6 +151,19 @@ class TwitchlurkerApplicationTests {
     }
 
     @Test
+    void watchlistEndpointAndCatalogueInDrops() throws Exception {
+        mvc.perform(put("/api/drops/watch").with(oidcLogin()).with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"games\":[\"Minecraft\",\" minecraft \"]}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.dropScout.games[0]").value("Minecraft"))
+                .andExpect(jsonPath("$.dropScout.games.length()").value(1));
+        mvc.perform(get("/api/drops").with(oidcLogin()))
+                .andExpect(jsonPath("$.watchGames[0]").value("Minecraft"))
+                .andExpect(jsonPath("$.catalogue").isArray());
+        mvc.perform(post("/api/channels/refresh").with(oidcLogin()).with(csrf())).andExpect(status().isOk());
+        settingsStore.save(settingsStore.get().withWatchGames(List.of()));
+    }
+
+    @Test
     void remainingEndpointsRespond() throws Exception {
         for (String path : new String[] {"/api/channels", "/api/drops", "/api/raffles", "/api/bot", "/api/twitch", "/api/me"}) {
             mvc.perform(get(path).with(oidcLogin())).andExpect(status().isOk());

@@ -229,7 +229,9 @@ function eventView(e) {
     case 'MOMENT': return ['✧', 'Moment mitgenommen', who];
     case 'RAID': return ['↪', 'Beim Raid mitgezogen', `${who} → ${esc(e.detail || '?')}`];
     case 'DROP': return ['◇', 'Drop geclaimt', esc(e.detail || '')];
-    case 'ADDED': return ['↗', e.detail === 'drops' ? 'Für Drops aufgenommen' : 'Kanal aufgenommen', who];
+    case 'ADDED': return ['↗', e.detail === 'drops' ? 'Für Drops aufgenommen' : e.detail === 'follow' ? 'Neu gefolgt' : 'Kanal aufgenommen', who];
+    case 'REMOVED': return ['↘', 'Nicht mehr gefolgt', who];
+    case 'LURK': return ['~', 'Im Chat Bescheid gesagt', who];
     case 'ONLINE': return ['●', 'Ist jetzt live', who];
     case 'RAFFLE': return ['✓', 'Bei der Verlosung dabei', `${who} · ${esc(e.detail || '')} gesendet`];
     case 'RAFFLE_WON': return ['★', 'Verlosung gewonnen', `${who} · ${esc(e.detail || '')}`];
@@ -612,8 +614,83 @@ function renderDrops() {
   $('#scouted').innerHTML = `<h2>Drop-Suche</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'Diese Kanäle hat der Bot für laufende Kampagnen dazugeholt.' : 'Aktiv. Noch keine zusätzlichen Kanäle nötig.') : 'Ausgeschaltet. Nur deine eigenen Kanäle sammeln Drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
   $('#nav-drops').hidden = !d.campaigns.length;
   $('.tab-dot').hidden = !d.campaigns.length;
+  renderWatchlist();
+  renderCatalogue();
   setPhase();
   enter('drops');
+}
+
+function isWatched(game) {
+  const g = (game || '').toLowerCase();
+  return (state.drops?.watchGames || []).some(w => w.toLowerCase() === g);
+}
+
+function renderWatchlist() {
+  const games = state.drops?.watchGames || [];
+  $('#watch-chips').innerHTML = games.length
+    ? games.map(g => `<li class="chip"><span>${esc(g)}</span><button type="button" class="chip-remove" data-unwatch="${esc(g)}" aria-label="${esc(g)} nicht mehr beobachten">×</button></li>`).join('')
+    : '<li class="meta">Noch nichts beobachtet.</li>';
+  const names = [...new Set((state.drops?.catalogue || []).map(c => c.game).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'de'));
+  const html = names.map(n => `<option value="${esc(n)}"></option>`).join('');
+  if ($('#game-suggestions').dataset.html !== html) {
+    $('#game-suggestions').innerHTML = html;
+    $('#game-suggestions').dataset.html = html;
+  }
+}
+
+function timeWindow(c) {
+  const fmtD = iso => new Date(iso).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' });
+  if (c.status === 'UPCOMING' && c.startAt) return `ab ${fmtD(c.startAt)}`;
+  if (!c.endAt) return '';
+  const hours = Math.round((new Date(c.endAt) - Date.now()) / 3600000);
+  return hours < 48 ? `noch ${Math.max(0, hours)} Std.` : `bis ${fmtD(c.endAt)}`;
+}
+
+function renderCatalogue() {
+  const all = state.drops?.catalogue || [];
+  $('#catalogue-count').textContent = all.length;
+  const q = ($('#drop-search').value || '').trim().toLowerCase();
+  const filter = $('#drop-filter').value;
+  const list = all.filter(c => {
+    if (filter === 'watched' && !c.watched && !isWatched(c.game)) return false;
+    if (filter === 'active' && c.status !== 'ACTIVE') return false;
+    if (filter === 'upcoming' && c.status !== 'UPCOMING') return false;
+    if (filter === 'linked' && !c.linked) return false;
+    if (!q) return true;
+    return [c.game, c.name, ...c.rewards.map(r => r.name)].some(v => (v || '').toLowerCase().includes(q));
+  });
+  const updated = state.drops?.catalogueUpdatedAt;
+  $('#catalogue-meta').textContent = all.length
+    ? `${list.length} von ${all.length} Kampagnen${updated ? ' · Stand ' + time(updated) + ' Uhr' : ''}`
+    : 'Der Bot lädt die Kampagnen nach dem Start (dauert ein, zwei Minuten).';
+  $('#catalogue-grid').innerHTML = list.map(c => {
+    const watched = c.watched || isWatched(c.game);
+    const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
+    const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${fmt(r.minutes)} Min.</small></li>`).join('');
+    const more = c.rewards.length > 6 ? `<li class="meta">+${c.rewards.length - 6} weitere</li>` : '';
+    const where = c.channels.length ? `Nur bei ${c.channels.length} Kanälen` : 'Bei allen Drop-Streams';
+    const link = !c.linked && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Account verknüpfen <svg><use href="#i-arrow"/></svg></a>` : '';
+    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Läuft' : 'Bald'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked ? '<span class="positive">✓ verknüpft</span>' : 'nicht verknüpft'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Beobachtet ✓' : 'Beobachten'}</button></div></div></article>`;
+  }).join('') || '<div class="panel"><p class="meta">Nichts gefunden.</p></div>';
+}
+
+async function setWatchGames(games) {
+  try {
+    const saved = await api('/api/drops/watch', { method: 'PUT', body: { games } });
+    state.drops.watchGames = saved.dropScout.games;
+    state.settings = null;
+    renderWatchlist();
+    renderCatalogue();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+function toggleWatch(game) {
+  const games = state.drops?.watchGames || [];
+  const watched = games.some(g => g.toLowerCase() === game.toLowerCase());
+  setWatchGames(watched ? games.filter(g => g.toLowerCase() !== game.toLowerCase()) : [...games, game])
+    .then(() => toast(watched ? `${game} wird nicht mehr beobachtet.` : `${game} wird beobachtet. Gibt es Drops, lurkt der Bot passende Streams.`));
 }
 
 // ---------- Raffles ----------
@@ -788,6 +865,11 @@ function fillSettings(s) {
   f.scoutLinked.checked = s.dropScout.requireLinked;
   f.scoutCount.value = s.dropScout.channelsPerGame;
   f.raffleEnabled.checked = s.raffle.enabled;
+  f.lurkEnabled.checked = s.lurk.enabled;
+  f.lurkMessage.value = s.lurk.message;
+  const repeat = String(s.lurk.repeatMinutes);
+  if (![...f.lurkRepeat.options].some(o => o.value === repeat)) f.lurkRepeat.add(new Option(`Alle ${repeat} Minuten`, repeat));
+  f.lurkRepeat.value = repeat;
   f.joinCommands.value = s.raffle.joinCommands.map(c => '!' + c).join(', ');
   f.bots.value = s.raffle.bots.join(', ');
   f.minDelay.value = s.raffle.minDelaySeconds;
@@ -809,7 +891,8 @@ async function saveSettings(ev) {
     followRaid: f.followRaid.checked,
     claimMoments: f.claimMoments.checked,
     watchStreak: f.watchStreak.checked,
-    dropScout: { enabled: f.scoutEnabled.checked, channelsPerGame: Number(f.scoutCount.value), requireLinked: f.scoutLinked.checked },
+    dropScout: { enabled: f.scoutEnabled.checked, channelsPerGame: Number(f.scoutCount.value), requireLinked: f.scoutLinked.checked, games: s?.dropScout.games || [] },
+    lurk: { enabled: f.lurkEnabled.checked, message: f.lurkMessage.value.trim(), repeatMinutes: Number(f.lurkRepeat.value) },
     raffle: {
       enabled: f.raffleEnabled.checked,
       joinCommands: splitList(f.joinCommands.value),
@@ -864,6 +947,17 @@ function connectLive() {
     if (currentScreen() === 'drops') renderDrops();
     if (currentScreen() === 'overview') renderNextDrop();
   });
+  es.addEventListener('campaigns', ev => {
+    const c = JSON.parse(ev.data);
+    if (state.drops) {
+      state.drops.catalogue = c.campaigns;
+      state.drops.catalogueUpdatedAt = c.receivedAt;
+      if (currentScreen() === 'drops') {
+        renderWatchlist();
+        renderCatalogue();
+      }
+    }
+  });
   es.addEventListener('log', ev => {
     const l = JSON.parse(ev.data);
     state.logs.push(l);
@@ -894,7 +988,36 @@ function wire() {
     if (state.overview) renderSlots();
   });
   wireDrag();
+  $('#drop-search').addEventListener('input', renderCatalogue);
+  $('#drop-filter').addEventListener('change', renderCatalogue);
+  $('#watch-form').addEventListener('submit', ev => {
+    ev.preventDefault();
+    const input = $('#watch-input');
+    const game = input.value.trim();
+    if (!game) return;
+    input.value = '';
+    if (!isWatched(game)) toggleWatch(game);
+  });
+  $('#refresh-follows').addEventListener('click', async () => {
+    try {
+      const r = await api('/api/channels/refresh', { method: 'POST' });
+      toast(r.requested ? 'Follows werden abgeglichen. Neue Kanäle tauchen gleich auf.' : 'Der Bot läuft gerade nicht.');
+      setTimeout(() => loadChannels().catch(() => {}), 8000);
+    } catch (e) {
+      toast(e.message, true);
+    }
+  });
   document.addEventListener('click', ev => {
+    const watch = ev.target.closest('[data-watch-game]');
+    if (watch && watch.dataset.watchGame) {
+      toggleWatch(watch.dataset.watchGame);
+      return;
+    }
+    const unwatch = ev.target.closest('[data-unwatch]');
+    if (unwatch) {
+      setWatchGames((state.drops?.watchGames || []).filter(g => g !== unwatch.dataset.unwatch));
+      return;
+    }
     const move = ev.target.closest('[data-move]');
     if (move) {
       moveChannel(move.dataset.login, Number(move.dataset.move));
@@ -907,6 +1030,7 @@ function wire() {
     const tab = ev.target.closest('[data-drop-tab]');
     if (tab) {
       $$('[data-drop-tab]').forEach(b => { const sel = b === tab; b.classList.toggle('selected', sel); b.setAttribute('aria-pressed', sel); });
+      $('#catalogue').hidden = tab.dataset.dropTab !== 'catalogue';
       $('#campaigns').hidden = tab.dataset.dropTab !== 'campaigns';
       $('#inventory').hidden = tab.dataset.dropTab !== 'inventory';
     }

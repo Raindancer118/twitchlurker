@@ -209,3 +209,69 @@ def test_normalize_slots():
     assert core.normalize_slots(None) == [None, None]
     assert core.normalize_slots(["Papaplatte", ""]) == ["papaplatte", None]
     assert core.normalize_slots(["a_b", "c", "d"]) == ["a_b", "c"]
+
+
+def test_follow_changes():
+    added, removed = core.follow_changes(
+        followers=["a", "b", "new", "blocked"], current=["a", "b", "gone", "extra_one", "scouted_one"],
+        extra={"extra_one"}, scouted={"scouted_one"}, blacklist={"blocked"})
+    assert added == ["new"]
+    assert removed == ["gone"]
+
+
+def test_follow_changes_ignores_empty_follow_list():
+    # An empty answer from Twitch is far more likely a hiccup than the user unfollowing everyone.
+    assert core.follow_changes(followers=[], current=["a"], extra=set(), scouted=set(), blacklist=set()) == ([], [])
+
+
+DASH = [
+    {"id": "mc1", "name": "Minecraft Live", "status": "ACTIVE", "startAt": "2026-09-27T00:00:00Z", "endAt": "2026-10-05T00:00:00Z",
+     "game": {"id": "27471", "displayName": "Minecraft", "boxArtURL": "https://x/mc-{width}x{height}.jpg"},
+     "self": {"isAccountConnected": False}, "accountLinkURL": "https://link/mc"},
+    {"id": "rust1", "name": "Rust #40", "status": "ACTIVE", "startAt": "2026-09-20T00:00:00Z", "endAt": "2026-10-02T00:00:00Z",
+     "game": {"id": "263490", "displayName": "Rust"}, "self": {"isAccountConnected": True}},
+    {"id": "val1", "name": "Valorant Champs", "status": "UPCOMING", "startAt": "2026-10-10T00:00:00Z", "endAt": "2026-10-20T00:00:00Z",
+     "game": {"id": "516575", "displayName": "VALORANT"}, "self": {"isAccountConnected": False}},
+    {"id": "old", "name": "Old", "status": "EXPIRED", "game": {"id": "1", "displayName": "X"}, "self": {}},
+]
+DETAILS = {
+    "mc1": {"id": "mc1", "allow": {"channels": [{"id": "1", "name": "PapaPlatte"}, {"id": "2", "name": "gronkh"}], "isEnabled": True},
+            "timeBasedDrops": [{"id": "d", "name": "Cape", "requiredMinutesWatched": 60,
+                                "benefitEdges": [{"benefit": {"name": "Twitch Cape", "imageAssetURL": "https://x/cape.png"}}]}]},
+    "rust1": {"id": "rust1", "allow": {"channels": None}, "timeBasedDrops": []},
+}
+
+
+def test_campaign_catalogue():
+    cat = core.campaign_catalogue(DASH, DETAILS, watch_games=["minecraft"])
+    assert [c["id"] for c in cat] == ["mc1", "rust1", "val1"]
+    mc = cat[0]
+    assert mc["watched"] is True and mc["linked"] is False and mc["linkUrl"] == "https://link/mc"
+    assert mc["image"] == "https://x/mc-285x380.jpg"
+    assert mc["channels"] == ["papaplatte", "gronkh"]
+    assert mc["rewards"] == [{"name": "Twitch Cape", "image": "https://x/cape.png", "minutes": 60}]
+    assert cat[1]["channels"] == [] and cat[1]["watched"] is False
+    assert cat[2]["status"] == "UPCOMING"
+
+
+def test_game_watch_matching():
+    assert core.game_watched({"displayName": "Minecraft"}, ["minecraft"])
+    assert core.game_watched({"displayName": "Tom Clancy's Rainbow Six Siege"}, ["rainbow six siege"]) is False
+    assert core.game_watched({"displayName": "Tom Clancy's Rainbow Six Siege"}, ["tom-clancys-rainbow-six-siege"])
+    assert core.game_watched({"displayName": "VALORANT"}, ["Valorant"])
+    assert not core.game_watched({"displayName": "Rust"}, [])
+
+
+def test_games_to_scout_includes_watched_games_first_even_unlinked():
+    games = core.games_to_scout(DASH, finished_campaign_ids=set(), require_linked=True, watch_games=["minecraft"])
+    assert [g["displayName"] for g in games] == ["Minecraft", "Rust"]
+    assert [g["displayName"] for g in core.games_to_scout(DASH, set(), True)] == ["Rust"]
+
+
+def test_pick_directory_channels_respects_allow_list():
+    resp = {"data": {"game": {"streams": {"edges": [
+        {"node": {"broadcaster": {"login": "random"}, "viewersCount": 9000}},
+        {"node": {"broadcaster": {"login": "gronkh"}, "viewersCount": 100}},
+    ]}}}}
+    assert core.pick_directory_channels(resp, exclude=set(), limit=2, allowed=["papaplatte", "gronkh"]) == ["gronkh"]
+    assert core.pick_directory_channels(resp, exclude=set(), limit=2, allowed=[]) == ["random", "gronkh"]

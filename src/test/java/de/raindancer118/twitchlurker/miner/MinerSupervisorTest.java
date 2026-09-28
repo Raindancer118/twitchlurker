@@ -89,6 +89,15 @@ class MinerSupervisorTest {
         await().atMost(Duration.ofSeconds(5)).until(() -> logMessages().contains("cmd slots zarbex,") && logMessages().contains("cmd order trymacs,zarbex"));
         assertThat(supervisor.restarts()).isZero();
 
+        var beforeGames = settings.get();
+        var afterGames = settings.save(beforeGames.withWatchGames(List.of("Minecraft")));
+        supervisor.onSettingsChanged(beforeGames, afterGames);
+        await().atMost(Duration.ofSeconds(5)).until(() -> logMessages().contains("cmd watch-games Minecraft"));
+        assertThat(supervisor.restarts()).isZero();
+
+        supervisor.refreshFollows();
+        await().atMost(Duration.ofSeconds(5)).until(() -> logMessages().contains("cmd refresh-follows "));
+
         supervisor.stop();
         assertThat(supervisor.status()).isEqualTo(MinerSupervisor.Status.STOPPED);
         assertThat(logMessages()).contains("bye");

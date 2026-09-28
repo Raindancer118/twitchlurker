@@ -20,25 +20,62 @@ public record LurkerSettings(
         Raffle raffle,
         Boolean autostart,
         List<String> order,
-        List<String> slots) {
+        List<String> slots,
+        Lurk lurk) {
 
     public static final Set<String> PRIORITIES = Set.of("STREAK", "DROPS", "ORDER", "SUBSCRIBED", "POINTS_ASCENDING", "POINTS_DESCENDING");
     static final Pattern LOGIN = Pattern.compile("[a-z0-9_]{3,25}");
     static final Pattern COMMAND = Pattern.compile("[a-z0-9_]{1,25}");
 
-    public record DropScout(Boolean enabled, Integer channelsPerGame, Boolean requireLinked) {
+    public record DropScout(Boolean enabled, Integer channelsPerGame, Boolean requireLinked, List<String> games) {
         public DropScout {
             enabled = enabled == null || enabled;
             channelsPerGame = channelsPerGame == null ? 2 : channelsPerGame;
             requireLinked = requireLinked == null || requireLinked;
+            games = normalizeGames(games);
+        }
+
+        /** Same scouting behaviour apart from the watchlist (which is applied live). */
+        boolean sameBehaviour(DropScout o) {
+            return enabled.equals(o.enabled) && channelsPerGame.equals(o.channelsPerGame) && requireLinked.equals(o.requireLinked);
         }
     }
+
+    private static List<String> normalizeGames(List<String> values) {
+        var out = new ArrayList<String>();
+        var seen = new java.util.HashSet<String>();
+        for (String v : values == null ? List.<String>of() : values) {
+            if (v == null || v.isBlank()) {
+                continue;
+            }
+            String g = v.strip().replaceAll("\\s+", " ");
+            if (seen.add(g.toLowerCase(Locale.ROOT))) {
+                out.add(g);
+            }
+        }
+        return List.copyOf(out);
+    }
+
+    /** What to say when the bot starts lurking a channel; repeatMinutes 0 = once per stream. */
+    public record Lurk(Boolean enabled, String message, Integer repeatMinutes) {
+        public Lurk {
+            enabled = enabled == null || enabled;
+            message = message == null || message.isBlank() ? "!lurk" : message.strip();
+            repeatMinutes = repeatMinutes == null ? 0 : repeatMinutes;
+        }
+    }
+
+    static final List<String> DEFAULT_JOIN_COMMANDS = List.of("join", "enter", "gw");
 
     public record Raffle(Boolean enabled, List<String> joinCommands, List<String> bots, List<String> disabledChannels,
                          Integer minDelaySeconds, Integer maxDelaySeconds, Integer cooldownSeconds) {
         public Raffle {
             enabled = enabled == null || enabled;
-            joinCommands = normalize(joinCommands, List.of("join", "enter", "raffle", "giveaway", "gw"), true);
+            joinCommands = normalize(joinCommands, DEFAULT_JOIN_COMMANDS, true);
+            // Up to 0.4.0 the default also contained !raffle and !giveaway, which are mostly mod commands.
+            if (joinCommands.equals(List.of("join", "enter", "raffle", "giveaway", "gw"))) {
+                joinCommands = DEFAULT_JOIN_COMMANDS;
+            }
             bots = normalize(bots, List.of("streamelements", "nightbot", "moobot", "fossabot", "wizebot", "streamlabs", "botrixoficial", "sery_bot", "deepbot", "coebot"), false);
             disabledChannels = normalize(disabledChannels, List.of(), false);
             minDelaySeconds = minDelaySeconds == null ? 4 : minDelaySeconds;
@@ -57,11 +94,12 @@ public record LurkerSettings(
         followRaid = followRaid == null || followRaid;
         claimMoments = claimMoments == null || claimMoments;
         watchStreak = watchStreak == null || watchStreak;
-        dropScout = dropScout == null ? new DropScout(null, null, null) : dropScout;
+        dropScout = dropScout == null ? new DropScout(null, null, null, null) : dropScout;
         raffle = raffle == null ? new Raffle(null, null, null, null, null, null, null) : raffle;
         autostart = autostart == null || autostart;
         order = normalize(order, List.of(), false);
         slots = normalizeSlots(slots);
+        lurk = lurk == null ? new Lurk(null, null, null) : lurk;
     }
 
     /** Exactly two entries; null means the slot is filled automatically. */
@@ -76,7 +114,7 @@ public record LurkerSettings(
     }
 
     public static LurkerSettings defaults() {
-        return new LurkerSettings(null, null, null, null, null, null, null, null, null, null, null, null);
+        return new LurkerSettings(null, null, null, null, null, null, null, null, null, null, null, null, null);
     }
 
     private static List<String> normalize(List<String> values, List<String> fallback, boolean stripBang) {
@@ -119,6 +157,17 @@ public record LurkerSettings(
         if (raffle.cooldownSeconds() < 30 || raffle.cooldownSeconds() > 86_400) {
             errors.add("Cooldown muss zwischen 30 s und 24 h liegen");
         }
+        if (lurk.message().length() > 100 || lurk.message().chars().anyMatch(Character::isISOControl)) {
+            errors.add("Lurk-Nachricht: höchstens 100 Zeichen, eine Zeile");
+        }
+        if (lurk.repeatMinutes() != 0 && (lurk.repeatMinutes() < 30 || lurk.repeatMinutes() > 1440)) {
+            errors.add("Wiederholung: 0 (einmal pro Stream) oder 30 bis 1440 Minuten");
+        }
+        if (dropScout.games().size() > 40) {
+            errors.add("Höchstens 40 beobachtete Spiele");
+        }
+        dropScout.games().stream().filter(g -> g.length() > 80 || g.chars().anyMatch(Character::isISOControl))
+                .forEach(g -> errors.add("Ungültiger Spielname: „" + (g.length() > 30 ? g.substring(0, 30) + "…" : g) + "“"));
         if (dropScout.channelsPerGame() < 0 || dropScout.channelsPerGame() > 5) {
             errors.add("Drop-Kanäle pro Spiel: 0 bis 5");
         }
@@ -134,27 +183,36 @@ public record LurkerSettings(
     }
 
     public LurkerSettings withStreamers(List<String> v) {
-        return new LurkerSettings(followers, v, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots);
+        return new LurkerSettings(followers, v, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots, lurk);
     }
 
     public LurkerSettings withBlacklist(List<String> v) {
-        return new LurkerSettings(followers, streamers, v, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots);
+        return new LurkerSettings(followers, streamers, v, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots, lurk);
     }
 
     public LurkerSettings withRaffle(Raffle v) {
-        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, v, autostart, order, slots);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, v, autostart, order, slots, lurk);
     }
 
     public LurkerSettings withAutostart(boolean v) {
-        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, v, order, slots);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, v, order, slots, lurk);
+    }
+
+    public LurkerSettings withLurk(Lurk v) {
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, slots, v);
+    }
+
+    public LurkerSettings withWatchGames(List<String> v) {
+        var d = new DropScout(dropScout.enabled(), dropScout.channelsPerGame(), dropScout.requireLinked(), v);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, d, raffle, autostart, order, slots, lurk);
     }
 
     public LurkerSettings withOrder(List<String> v) {
-        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, v, slots);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, v, slots, lurk);
     }
 
     public LurkerSettings withSlots(List<String> v) {
-        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, v);
+        return new LurkerSettings(followers, streamers, blacklist, priority, followRaid, claimMoments, watchStreak, dropScout, raffle, autostart, order, v, lurk);
     }
 
     /** True if a change requires restarting the miner process (raffle/autostart changes don't). */
@@ -162,6 +220,6 @@ public record LurkerSettings(
         return !followers.equals(other.followers) || !streamers.equals(other.streamers) || !blacklist.equals(other.blacklist)
                 || !priority.equals(other.priority) || !followRaid.equals(other.followRaid)
                 || !claimMoments.equals(other.claimMoments) || !watchStreak.equals(other.watchStreak)
-                || !dropScout.equals(other.dropScout);
+                || !dropScout.sameBehaviour(other.dropScout);
     }
 }

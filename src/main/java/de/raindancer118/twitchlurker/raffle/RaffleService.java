@@ -61,8 +61,12 @@ public class RaffleService {
         return new Status(settings.get().raffle().enabled(), chat.isConnected(), chat.channels(), p != null ? p : chat.problem());
     }
 
+    private boolean chatNeeded() {
+        return settings.get().raffle().enabled() || settings.get().lurk().enabled();
+    }
+
     private String currentProblem() {
-        if (!settings.get().raffle().enabled()) {
+        if (!chatNeeded()) {
             return null;
         }
         var t = token.get();
@@ -78,7 +82,7 @@ public class RaffleService {
     public synchronized void sync() {
         var cfg = settings.get().raffle();
         var t = token.get();
-        if (!cfg.enabled() || currentProblem() != null) {
+        if (!chatNeeded() || currentProblem() != null) {
             closeChat();
             return;
         }
@@ -89,11 +93,10 @@ public class RaffleService {
             chat.open(t.get().login(), t.get().accessToken(), this::onMessage);
             openedFor = key;
         }
-        var disabled = Set.copyOf(cfg.disabledChannels());
+        // Raffle-disabled channels stay joined (the !lurk greeting needs them); their announcements are ignored in onTrigger.
         chat.setChannels(state.onlineStreamers().stream()
                 .filter(s -> !"drops".equals(s.source()))
                 .map(MinerState.Streamer::login)
-                .filter(l -> !disabled.contains(l))
                 .limit(MAX_CHANNELS)
                 .collect(Collectors.toUnmodifiableSet()));
     }
@@ -121,7 +124,7 @@ public class RaffleService {
 
     private void onPrivmsg(String channel, IrcMessage m) {
         var d = detector;
-        if (d == null) {
+        if (d == null || !settings.get().raffle().enabled()) {
             return;
         }
         if (d.isWinFor(m)) {
@@ -148,6 +151,9 @@ public class RaffleService {
 
     private void onTrigger(String channel, IrcMessage m, RaffleDetector.Trigger trigger) {
         var cfg = settings.get().raffle();
+        if (cfg.disabledChannels().contains(channel)) {
+            return;
+        }
         Instant now = clock.instant();
         Instant last = lastTrigger.get(channel);
         if (last != null && now.isBefore(last.plusSeconds(cfg.cooldownSeconds()))) {

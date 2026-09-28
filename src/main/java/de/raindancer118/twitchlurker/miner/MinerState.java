@@ -23,12 +23,29 @@ public class MinerState {
 
     public record Drops(List<Campaign> campaigns, List<Claimed> claimed, Instant receivedAt) {}
 
+    public record Reward(String name, String image, int minutes) {}
+
+    public record CatalogueCampaign(String id, String name, String game, String gameId, String image, String status,
+                                    String startAt, String endAt, boolean linked, String linkUrl, List<String> channels,
+                                    List<Reward> rewards, boolean watched) {}
+
+    public record Catalogue(List<CatalogueCampaign> campaigns, Instant receivedAt) {}
+
     public record LogLine(Instant ts, String level, String source, String msg) {}
 
     private static final int LOG_CAPACITY = 1000;
 
     private volatile Snapshot snapshot;
     private volatile Drops drops;
+    private volatile Catalogue catalogue;
+
+    public Optional<Catalogue> catalogue() {
+        return Optional.ofNullable(catalogue);
+    }
+
+    public void update(Catalogue c) {
+        catalogue = c;
+    }
     private final ArrayDeque<LogLine> logs = new ArrayDeque<>();
 
     public Optional<Snapshot> snapshot() {

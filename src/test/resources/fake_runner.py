@@ -12,6 +12,6 @@ out({"t": "state", "user": token["login"], "session": "s", "startedAt": None, "s
      "viewers": 1, "onlineSince": None, "minutesWatched": 1, "streakPending": False, "dropsEligible": False, "multiplier": False, "source": "follow"}]})
 for line in sys.stdin:
     cmd = json.loads(line)
-    arg = cmd.get("login") or ",".join(x or "" for x in cmd.get("slots") or cmd.get("order") or [])
+    arg = cmd.get("login") or ("" if cmd["cmd"] == "refresh-follows" else None) or ",".join(x or "" for x in cmd.get("slots") or cmd.get("order") or cmd.get("games") or [])
     out({"t": "log", "level": "INFO", "logger": "fake", "msg": "cmd " + cmd["cmd"] + " " + arg})
 out({"t": "log", "level": "INFO", "logger": "fake", "msg": "bye"})

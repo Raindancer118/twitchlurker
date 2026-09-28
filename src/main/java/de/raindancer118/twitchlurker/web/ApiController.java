@@ -100,6 +100,12 @@ public class ApiController {
         return dashboard.channels();
     }
 
+    @PostMapping("/channels/refresh")
+    Map<String, Object> refreshFollows() {
+        supervisor.refreshFollows();
+        return Map.of("requested", supervisor.startedAt().isPresent());
+    }
+
     @PostMapping("/channels/{login}/raffles")
     DashboardService.Channel toggleRaffles(@PathVariable String login, @RequestBody ToggleRequest request) {
         requireLogin(login);
@@ -114,6 +120,13 @@ public class ApiController {
                 r.minDelaySeconds(), r.maxDelaySeconds(), r.cooldownSeconds())));
         return dashboard.channels().stream().filter(c -> c.login().equals(login)).findFirst()
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND));
+    }
+
+    public record WatchRequest(List<String> games) {}
+
+    @PutMapping("/drops/watch")
+    LurkerSettings watchGames(@RequestBody WatchRequest request) {
+        return updateSettings(settings.get().withWatchGames(request.games()));
     }
 
     @GetMapping("/drops")
@@ -176,7 +189,7 @@ public class ApiController {
         var current = settings.get();
         return updateSettings(new LurkerSettings(incoming.followers(), incoming.streamers(), incoming.blacklist(),
                 incoming.priority(), incoming.followRaid(), incoming.claimMoments(), incoming.watchStreak(),
-                incoming.dropScout(), incoming.raffle(), current.autostart(), current.order(), current.slots()));
+                incoming.dropScout(), incoming.raffle(), current.autostart(), current.order(), current.slots(), incoming.lurk()));
     }
 
     public record SlotsRequest(List<String> slots) {}

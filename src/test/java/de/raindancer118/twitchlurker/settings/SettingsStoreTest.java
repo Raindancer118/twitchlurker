@@ -25,7 +25,7 @@ class SettingsStoreTest {
         assertThat(s.followers()).isTrue();
         assertThat(s.priority()).containsExactly("STREAK", "DROPS", "ORDER");
         assertThat(s.raffle().enabled()).isTrue();
-        assertThat(s.raffle().joinCommands()).contains("join", "enter");
+        assertThat(s.raffle().joinCommands()).contains("join", "enter").doesNotContain("raffle", "giveaway");
         assertThat(s.raffle().bots()).contains("streamelements", "nightbot");
         assertThat(s.dropScout().enabled()).isTrue();
         assertThat(s.autostart()).isTrue();
@@ -56,7 +56,7 @@ class SettingsStoreTest {
         var st = store();
         var s = st.get();
         assertThatThrownBy(() -> st.save(new LurkerSettings(s.followers(), s.streamers(), s.blacklist(), List.of("STREAK", "MAGIC"),
-                s.followRaid(), s.claimMoments(), s.watchStreak(), s.dropScout(), s.raffle(), s.autostart(), s.order(), s.slots())))
+                s.followRaid(), s.claimMoments(), s.watchStreak(), s.dropScout(), s.raffle(), s.autostart(), s.order(), s.slots(), s.lurk())))
                 .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("MAGIC");
         var badRaffle = new LurkerSettings.Raffle(true, s.raffle().joinCommands(), s.raffle().bots(), List.of(), 30, 5, 180);
         assertThatThrownBy(() -> st.save(s.withRaffle(badRaffle)))
@@ -76,6 +76,42 @@ class SettingsStoreTest {
                 .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("no way");
         assertThat(saved.minerRelevantDiff(saved.withSlots(List.of("x_x")))).isFalse();
         assertThat(saved.minerRelevantDiff(saved.withOrder(List.of("x_x")))).isFalse();
+    }
+
+    @Test
+    void migratesTheOldDefaultJoinCommandsButKeepsCustomLists() throws Exception {
+        Files.writeString(dir.resolve("settings.json"),
+                "{\"raffle\":{\"joinCommands\":[\"join\",\"enter\",\"raffle\",\"giveaway\",\"gw\"]}}");
+        assertThat(store().get().raffle().joinCommands()).containsExactly("join", "enter", "gw");
+        Files.writeString(dir.resolve("settings.json"), "{\"raffle\":{\"joinCommands\":[\"raffle\",\"join\"]}}");
+        assertThat(store().get().raffle().joinCommands()).containsExactly("raffle", "join");
+    }
+
+    @Test
+    void watchedGamesAreNormalizedValidatedAndLive() {
+        var st = store();
+        var s = st.get();
+        assertThat(s.dropScout().games()).isEmpty();
+        var saved = st.save(s.withWatchGames(List.of(" Minecraft ", "minecraft", "VALORANT", "")));
+        assertThat(saved.dropScout().games()).containsExactly("Minecraft", "VALORANT");
+        assertThat(saved.minerRelevantDiff(saved.withWatchGames(List.of("Rust")))).isFalse();
+        assertThatThrownBy(() -> st.save(s.withWatchGames(List.of("x".repeat(81)))))
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Spiel");
+    }
+
+    @Test
+    void lurkDefaultsAndValidation() {
+        var st = store();
+        var lurk = st.get().lurk();
+        assertThat(lurk.enabled()).isTrue();
+        assertThat(lurk.message()).isEqualTo("!lurk");
+        assertThat(lurk.repeatMinutes()).isZero();
+        assertThatThrownBy(() -> st.save(st.get().withLurk(new LurkerSettings.Lurk(true, "!lurk\nspam", 0))))
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Lurk");
+        assertThatThrownBy(() -> st.save(st.get().withLurk(new LurkerSettings.Lurk(true, "!lurk", 5))))
+                .isInstanceOf(InvalidSettingsException.class).hasMessageContaining("Wiederholung");
+        assertThat(st.save(st.get().withLurk(new LurkerSettings.Lurk(true, "  !lurk bin im Hintergrund ", 120))).lurk().message())
+                .isEqualTo("!lurk bin im Hintergrund");
     }
 
     @Test

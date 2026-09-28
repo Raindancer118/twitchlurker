@@ -146,6 +146,9 @@ public class MinerSupervisor {
         if (!before.slots().equals(after.slots())) {
             sendCommand(Map.of("cmd", "slots", "slots", after.slots()));
         }
+        if (!before.dropScout().games().equals(after.dropScout().games())) {
+            sendCommand(Map.of("cmd", "watch-games", "games", after.dropScout().games()));
+        }
         if (!before.order().equals(after.order())) {
             sendCommand(Map.of("cmd", "order", "order", after.order()));
         }
@@ -159,6 +162,10 @@ public class MinerSupervisor {
         } else {
             restart();
         }
+    }
+
+    public void refreshFollows() {
+        sendCommand(Map.of("cmd", "refresh-follows"));
     }
 
     public void addChannelLive(String login) {
@@ -320,7 +327,7 @@ public class MinerSupervisor {
         cfg.put("order", s.order());
         cfg.put("slots", s.slots());
         cfg.put("dropScout", Map.of("enabled", s.dropScout().enabled(), "channelsPerGame", s.dropScout().channelsPerGame(),
-                "requireLinked", s.dropScout().requireLinked()));
+                "requireLinked", s.dropScout().requireLinked(), "games", s.dropScout().games()));
         Path tmp = configFile.resolveSibling("miner-config.json.tmp");
         Files.deleteIfExists(tmp);
         Files.createFile(tmp, PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rw-------")));
