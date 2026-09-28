@@ -15,7 +15,8 @@ services:
       - no-new-privileges:true
     read_only: true
     tmpfs:
-      - /tmp
+      # sqlite-jdbc extracts and loads its native library from /tmp, so it must not be noexec
+      - /tmp:exec,mode=1777
     mem_limit: 1g
 
 volumes:
