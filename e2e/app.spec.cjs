@@ -85,3 +85,39 @@ test('actions: add channel, invalid settings, raffle toggle, stop/start', async 
   await page.click('#bot-toggle');
   await expect(page.locator('#sidebar-state')).toHaveText(/Bot (startet|läuft)/, { timeout: 20_000 });
 });
+
+test('motion layer: nav indicator, entrance, draw-on, reduced-motion off', async ({ page }) => {
+  const errors = [];
+  page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') errors.push(m.text()); });
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await login(page);
+  await expect(page.locator('#overview.is-entering')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('#overview.is-entering')).toHaveCount(0, { timeout: 5_000 });
+
+  const aligned = async () => page.evaluate(() => {
+    const ind = document.querySelector('.nav-indicator').getBoundingClientRect();
+    const act = document.querySelector('nav a[aria-current]').getBoundingClientRect();
+    return Math.abs(ind.top - act.top) < 2 && Math.abs(ind.height - act.height) < 2;
+  });
+  expect(await aligned()).toBe(true);
+
+  await page.click('nav a[href="#channels"]');
+  for (let i = 0; i < 6; i++) await page.screenshot({ path: `shots/motion-${i}.png` }), await page.waitForTimeout(90);
+  await expect(page.locator('#channels.is-entering')).toHaveCount(1);
+  await expect(page.locator('.sparkline polyline[pathLength="1"]').first()).toBeVisible({ timeout: 10_000 });
+  await page.waitForTimeout(700);
+  expect(await aligned()).toBe(true);
+  const rowAnim = await page.locator('.channel-row').nth(1).evaluate(el => getComputedStyle(el).animationName);
+  expect(['rise', 'none']).toContain(rowAnim);
+
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(500);
+  expect(await page.evaluate(() => {
+    const ind = document.querySelector('.nav-indicator').getBoundingClientRect();
+    const act = document.querySelector('nav a[aria-current]').getBoundingClientRect();
+    return Math.abs(ind.left - act.left) < 2 && Math.abs(ind.width - act.width) < 2;
+  })).toBe(true);
+  expect(errors).toEqual([]);
+});

@@ -1,0 +1,95 @@
+/* Motion layer, rules in Design.md → Motion. Everything here is opt-in via no-preference. */
+:root{
+  --ease-out:cubic-bezier(.2,.8,.2,1);
+  --ease-spring:cubic-bezier(.34,1.4,.64,1);
+  --t-short:160ms;--t-mid:320ms;--t-enter:520ms;--stagger:45ms;
+  /* Set by app.js on every render so recreated elements continue loops seamlessly. */
+  --phase:0s;
+}
+
+nav{position:relative}
+nav .nav-indicator{position:absolute;left:0;top:0;width:0;height:0;border-radius:8px;background:var(--accent);pointer-events:none;opacity:0}
+nav.has-indicator a{position:relative;z-index:1}
+nav.has-indicator a[aria-current=page]{background:transparent}
+nav.has-indicator .nav-indicator{opacity:1}
+
+.stat-bump{position:absolute;margin-left:10px;font-size:12px;font-weight:700;color:var(--positive);pointer-events:none;opacity:0}
+.stats-strip strong,.stream-bottom strong{position:relative}
+
+@media (prefers-reduced-motion:no-preference){
+  /* Screen changes: only the workspace moves, the sidebar stays put. */
+  main{view-transition-name:screen}
+  ::view-transition-old(screen){animation:vt-out 180ms var(--ease-out) both}
+  ::view-transition-new(screen){animation:vt-in 260ms var(--ease-out) both}
+  @keyframes vt-out{to{opacity:0;transform:translateY(-6px)}}
+  @keyframes vt-in{from{opacity:0;transform:translateY(10px)}}
+
+  nav .nav-indicator{transition:transform var(--t-mid) var(--ease-spring),width var(--t-mid) var(--ease-out),height var(--t-mid) var(--ease-out)}
+  nav a{transition:background var(--t-short),color var(--t-short)}
+
+  /* Entrance, only while a screen is being opened (.is-entering is set by app.js for ~1.4 s). */
+  .is-entering :is(.page-heading>div,.stats-strip>div,.stream-card,.feed li,.next-drop,.channel-row,.campaign,.inventory-item,.raffle-entry,.bot-grid>.panel,.settings-grid>.panel,.raffle-layout .stack>.panel,.toolbar,.add-channel,.tabs){
+    animation:rise var(--t-enter) var(--ease-out) both;
+    animation-delay:calc(min(var(--i,0),12) * var(--stagger));
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}}
+
+  .is-entering progress::-webkit-progress-value{animation:fill 900ms var(--ease-out) both;animation-delay:calc(160ms + min(var(--i,0),12) * var(--stagger));transform-origin:left}
+  .is-entering progress::-moz-progress-bar{animation:fill 900ms var(--ease-out) both;transform-origin:left}
+  @keyframes fill{from{transform:scaleX(0)}}
+
+  .is-entering :is(.sparkline polyline,.chart-path),dialog[open] .chart-path{stroke-dasharray:1;animation:draw 700ms var(--ease-out) both;animation-delay:calc(120ms + min(var(--i,0),12) * var(--stagger))}
+  @keyframes draw{from{stroke-dashoffset:1}to{stroke-dashoffset:0}}
+
+  /* New data arriving live. */
+  .feed li.fresh{animation:arrive 480ms var(--ease-spring) both,glint 1.6s ease-out 1}
+  @keyframes arrive{from{opacity:0;transform:translateY(-10px) scale(.98)}}
+  @keyframes glint{0%{background:color-mix(in srgb,var(--accent) 22%,transparent)}100%{background:transparent}}
+  .stat-bump.show{animation:bump 1.4s var(--ease-out) both}
+  @keyframes bump{0%{opacity:0;transform:translateY(6px)}20%{opacity:1;transform:translateY(0)}75%{opacity:1}100%{opacity:0;transform:translateY(-10px)}}
+  .channel-row.updated .value{animation:tick 700ms var(--ease-out)}
+  @keyframes tick{40%{color:var(--positive)}}
+
+  /* Live pulse on everything that is actively being lurked. */
+  :is(.stream-bottom,.bot-mini,.session-label) .status-dot{animation:pulse 2.4s ease-out infinite;animation-delay:calc(-1 * var(--phase))}
+  .paused :is(.stream-bottom,.bot-mini,.session-label) .status-dot{animation:none}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--positive) 55%,transparent)}70%,100%{box-shadow:0 0 0 7px transparent}}
+  .live-tag:before{animation:blink 1.6s steps(1) infinite;animation-delay:calc(-1 * var(--phase))}
+  @keyframes blink{50%{opacity:.35}}
+
+  /* Illustrations: slow drift, a bit livelier on hover, scroll parallax where supported. */
+  :is(.stream-art,.campaign-art) .landscape{animation:drift 24s ease-in-out infinite alternate;animation-delay:calc(-1 * var(--phase));transition:filter var(--t-mid)}
+  @keyframes drift{from{scale:1.02}to{scale:1.07}}
+  .stream-card,.campaign{transition:transform var(--t-mid) var(--ease-out),box-shadow var(--t-mid) var(--ease-out)}
+  .stream-card:not(.placeholder):hover,.campaign:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+  .stream-card:hover .landscape,.campaign:hover .landscape{animation-duration:12s}
+  @supports (animation-timeline:view()){
+    :is(.stream-art,.campaign-art) .landscape{animation:drift 24s ease-in-out infinite alternate,parallax linear both;animation-timeline:auto,view();animation-range:normal,cover;animation-delay:calc(-1 * var(--phase)),0s}
+    @keyframes parallax{from{translate:0 -10px}to{translate:0 10px}}
+    :is(.lower-grid>*,.scouted,.log-panel,.channel-table){animation:reveal linear both;animation-timeline:view();animation-range:entry 0% entry 35%}
+    @keyframes reveal{from{opacity:.001;transform:translateY(14px)}}
+  }
+
+  .chest-art,.heading-chest,.account-empty svg,.inventory-item svg{animation:float 6s ease-in-out infinite;animation-delay:calc(-1 * var(--phase))}
+  @keyframes float{0%,100%{transform:translateY(0);filter:drop-shadow(0 0 0 transparent)}50%{transform:translateY(-4px);filter:drop-shadow(0 6px 14px color-mix(in srgb,var(--accent) 30%,transparent))}}
+
+  /* Feedback. */
+  :is(button,a.primary,a.button-like):active{scale:.97}
+  :is(button,a.primary,a.button-like){transition:scale var(--t-short) var(--ease-out),background var(--t-short),color var(--t-short)}
+  .toast{transition:opacity var(--t-mid) var(--ease-out),transform var(--t-mid) var(--ease-spring)}
+  @starting-style{.toast:not([hidden]){opacity:0;transform:translateY(16px)}}
+  dialog[open]{transition:opacity var(--t-mid) var(--ease-out),transform var(--t-mid) var(--ease-spring)}
+  @starting-style{dialog[open]{opacity:0;transform:scale(.97) translateY(10px)}}
+  dialog[open]::backdrop{transition:opacity var(--t-mid)}
+  @starting-style{dialog[open]::backdrop{opacity:0}}
+
+  .raffle-entry:has(.result.won){position:relative;overflow:hidden}
+  .raffle-entry:has(.result.won)::after{content:'';position:absolute;inset:0;background:linear-gradient(105deg,transparent 35%,color-mix(in srgb,var(--accent) 35%,transparent) 50%,transparent 65%);transform:translateX(-100%);animation:sweep 1.8s var(--ease-out) .3s 1 both;pointer-events:none}
+  @keyframes sweep{to{transform:translateX(100%)}}
+
+  .device-code.waiting-code{animation:breathe 2.8s ease-in-out infinite}
+  @keyframes breathe{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 25%,transparent)}}
+  .login-done .positive{animation:rise var(--t-enter) var(--ease-spring) both}
+
+  .switch-row input:after{transition:translate var(--t-mid) var(--ease-spring)}
+}

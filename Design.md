@@ -33,7 +33,19 @@ Unter 1000 px: kompakte horizontale Navigation, Inhalt 24 px. Unter 680 px: 16 p
 Navigation: echte Hashlinks, `aria-current=page`, Browser Zurück/Vorwärts. Kanal-Details im nativen Dialog mit Escape und Fokusrückgabe. Formfelder stets beschriftet, sichtbarer Tastaturfokus. Fortschritt mit nativem `progress` und ausgeschriebenen Werten. Zustände nicht nur über Farbe darstellen.
 
 ## Motion
-180 ms Hintergrund-/Farbwechsel, 220 ms View Transition bei Navigation. Eintritt im Dialog über `@starting-style`. Nur der Lesefortschritt am oberen Rand ist scrollgekoppelt (`animation-timeline: scroll()`); kein unruhiges Pulsieren oder animierte Zahlen. `prefers-reduced-motion: reduce` deaktiviert sämtliche Animationen und Transitions.
+Motion erzählt, dass im Hintergrund etwas passiert. Sie zeigt Zustand und Herkunft neuer Daten und dient nicht als Deko. Alles steht hinter `prefers-reduced-motion: no-preference`; unter `reduce` bleibt die Seite statisch (Endzustände sofort).
+
+Kurven und Zeiten (Tokens in `motion.css`): `--ease-out: cubic-bezier(.2,.8,.2,1)`, `--ease-spring: cubic-bezier(.34,1.4,.64,1)`; kurz 160 ms, mittel 320 ms, Eintritt 520 ms, Stagger 45 ms (max. 12 Elemente).
+
+- **Screenwechsel:** View Transition, Inhalt gleitet 10 px nach oben ein, alter Screen blendet aus (260 ms). Die aktive Navigationsmarke wandert als eigener Indikator zwischen den Punkten (Sidebar vertikal, mobil horizontal).
+- **Eintritt:** Beim Öffnen eines Screens steigen Karten, Zeilen und Feed-Einträge gestaffelt auf. Nur beim Öffnen, nie bei Hintergrund-Refresh.
+- **Neue Daten:** Neue Feed-Einträge (SSE) klappen oben auf und tragen kurz einen Akzent-Schimmer. Zahlen zählen zur neuen Summe hoch (600 ms) und zeigen einen schwebenden „+N“-Chip.
+- **Live:** Statuspunkte gelurkter Kanäle senden einen ruhigen Puls (2,4 s). Pausierter Bot: kein Puls.
+- **Illustrationen:** Landschaften driften sehr langsam (Ken-Burns, 24 s, ±2 %), bei Hover minimal schneller/näher. Die Truhe schwebt (6 s, 4 px), Funken blinken versetzt. Scroll-gekoppelte Parallaxe der Stream-Art über `animation-timeline: view()`.
+- **Fortschritt:** Balken füllen sich beim Erscheinen von 0 auf; Sparklines und Verlaufschart zeichnen ihre Linie (700 ms).
+- **Feedback:** Buttons geben beim Drücken leicht nach (scale .97). Toast gleitet von unten ein. Dialog skaliert aus 0,97 mit Backdrop-Fade. Raffle-Gewinne bekommen einen einmaligen Glanz-Sweep. Der Device-Code „atmet“, solange auf Bestätigung gewartet wird.
+
+Verboten: Endlosanimationen auf Text, Bewegung über 12 px bei Eintritt, Animationen, die Layout verschieben (nur `transform`/`opacity`/`clip-path`/`filter`).
 
 ## Mock-Verhalten und Backend-Vertrag
 Alle Daten sind ein fiktiver Snapshot vom 28.09.2026, 20:42 Uhr. Die Oberfläche benennt den Prototyp dauerhaft. Kein Twitch- oder Authentik-API-Zugriff. Start/Stopp/Neustart, Login-Erfolg, Drops claimen, Raffle-Schalter und Ereignisse sind ausdrücklich lokale Simulationen. Einstellungen und Theme werden in localStorage gespeichert; Loginstatus bleibt in der Sitzung. Erneutes Laden startet den Beispieldatensatz neu.
