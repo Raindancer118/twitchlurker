@@ -281,8 +281,7 @@ def inventory_loop(miner):
                         else:
                             claimed_now.add(instance_id.split("#")[1])
                             emit({"t": "event", "event": "DROP", "name": name})
-                completed = (inventory or {}).get("completedRewardCampaigns") or []
-                snap["campaigns"] += core.quest_progress(in_progress, details, completed, time.time())
+                snap["campaigns"] += core.quest_progress(in_progress, details)
             except Exception as e:
                 emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read quest progress: {e}"})
             emit({"t": "drops", **snap})

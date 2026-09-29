@@ -189,16 +189,11 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   const creeper = page.locator('#campaigns .campaign', { hasText: 'Corrupted Creeper Cape' });
   await expect(creeper).toContainText('Ready to claim');
   await expect(creeper.getByRole('link', { name: 'Claim on Twitch' })).toHaveAttribute('href', 'https://www.twitch.tv/drops/inventory');
-  const auroraProgress = page.locator('#campaigns .campaign', { hasText: 'Aurora Cape' });
-  await expect(auroraProgress).toContainText('Twitch quest');
-  await auroraProgress.getByRole('button', { name: 'Show code' }).click();
-  await expect(page.locator('#code-value')).toHaveText('AURO-RA12-CAPE');
-  await expect(page.locator('#code-redeem')).toHaveAttribute('href', 'https://www.minecraft.net/redeem');
-  await expect(page.locator('#code-redeem')).toContainText('Redeem on minecraft.net');
-  await expect(page.locator('#code-expires')).toContainText('Valid until');
-  await page.screenshot({ path: 'shots/drops-code.png' });
-  await page.locator('#code-dialog .close-dialog').click();
-  await expect(page.locator('#code-value')).toHaveText('');
+  // Claimed rewards stay out of progress: finished quests entirely, finished drops of running campaigns too.
+  await expect(page.locator('#campaigns .campaign', { hasText: 'Aurora Cape' })).toHaveCount(0);
+  await expect(page.locator('#campaigns .campaign', { hasText: 'Rust' })).toContainText('Hazmat Suit');
+  await expect(page.locator('#campaigns')).not.toContainText('Garage Door Skin');
+  await expect(page.locator('#campaign-count')).toHaveText('3');
 
   await page.click('[data-drop-tab="inventory"]');
   await expect(page.locator('#inventory-grid .inventory-item').first()).toContainText('Aurora Cape');
@@ -206,7 +201,12 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await expect(page.locator('#inventory-grid .inventory-item', { hasText: 'Pichu' }).getByRole('button')).toHaveCount(0);
   await page.locator('#inventory-grid .inventory-item', { hasText: 'Aurora Cape' }).getByRole('button', { name: 'Show code' }).click();
   await expect(page.locator('#code-value')).toHaveText('AURO-RA12-CAPE');
-  await page.keyboard.press('Escape');
+  await expect(page.locator('#code-redeem')).toHaveAttribute('href', 'https://www.minecraft.net/redeem');
+  await expect(page.locator('#code-redeem')).toContainText('Redeem on minecraft.net');
+  await expect(page.locator('#code-expires')).toContainText('Valid until');
+  await page.screenshot({ path: 'shots/drops-code.png' });
+  await page.locator('#code-dialog .close-dialog').click();
+  await expect(page.locator('#code-value')).toHaveText('');
   await page.click('[data-drop-tab="catalogue"]');
   await page.fill('#drop-search', 'twitch cape');
   await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(1);

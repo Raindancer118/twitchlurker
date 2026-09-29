@@ -454,7 +454,7 @@ DETAILS = {"creeper": CREEPER_DETAIL, "s0ph": BADGE_DETAIL, "poke": POKE_DETAIL}
 
 
 def test_quest_progress_from_reward_drop_campaigns():
-    camps = {c["id"]: c for c in core.quest_progress(IN_PROGRESS, DETAILS, [], NOW)}
+    camps = {c["id"]: c for c in core.quest_progress(IN_PROGRESS, DETAILS)}
     creeper = camps["creeper"]
     assert creeper["name"] == "Corrupted Creeper Cape" and creeper["game"] == "Minecraft" and creeper["quest"] is True
     assert creeper["image"] == "https://x/mc-285x380.jpg" and creeper["endsAt"] == "2026-09-27T06:58:59.999Z" and creeper["linked"] is True
@@ -469,14 +469,9 @@ def test_quest_progress_from_reward_drop_campaigns():
     assert [(d["watched"], d["required"]) for d in camps["poke"]["drops"]] == [(25, 60)]
 
 
-def test_quest_progress_lists_completed_quests_while_they_run():
-    camps = core.quest_progress([], {}, [AURORA, BUILDER], NOW)
-    assert [c["id"] for c in camps] == ["aurora"]
-    assert camps[0]["drops"] == [{"id": "r-aurora", "name": "Aurora Cape", "image": "https://x/aurora.png", "required": 15,
-                                  "watched": 15, "claimed": True, "claimable": False, "rewardId": "r-aurora",
-                                  "redeemUrl": "https://www.minecraft.net/redeem"}]
-    # A completed quest that also appears in progress (claimable) is not listed twice.
-    assert len(core.quest_progress(IN_PROGRESS[:1], DETAILS, [quest("creeper", "Corrupted Creeper Cape", "Minecraft", ends="2026-09-30T00:00:00Z")], NOW)) == 1
+def test_quest_progress_leaves_claimed_tiers_to_the_inventory():
+    done = [{"id": "creeper", "rewardGroups": [{"id": "g-creeper", "self": {"status": "CLAIMED", "currentMinutesWatched": 15}}]}]
+    assert core.quest_progress(done, DETAILS) == []
 
 
 def test_claimable_instances():

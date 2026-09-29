@@ -623,22 +623,23 @@ async function openCode({ codeCampaign, codeReward, codeRedeem, codeName }) {
 function renderDrops() {
   const d = state.drops;
   if (!d) return;
-  $('#campaign-count').textContent = d.campaigns.length;
+  // Claimed rewards live in the inventory; progress only shows what is still to earn or to claim.
+  const open = d.campaigns.map(c => ({ ...c, drops: c.drops.filter(dr => !dr.claimed) })).filter(c => c.drops.length);
+  $('#campaign-count').textContent = open.length;
   $('#inventory-count').textContent = d.claimed.length;
-  $('#campaigns').innerHTML = d.campaigns.length ? d.campaigns.map(c => {
+  $('#campaigns').innerHTML = open.length ? open.map(c => {
     const ends = c.endsAt ? new Date(c.endsAt).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const drops = c.drops.map(dr => {
       const pct = dr.required ? Math.min(100, Math.round(dr.watched / dr.required * 100)) : 0;
-      const done = dr.claimed || dr.claimable;
-      const label = dr.claimed ? '<span class="claimed">Claimed</span>' : dr.claimable ? '<span class="claimed">Ready to claim</span>' : pct + '%';
+      const label = dr.claimable ? '<span class="claimed">Ready to claim</span>' : pct + '%';
       const claimLink = dr.claimable ? '<a class="text-link" href="https://www.twitch.tv/drops/inventory" target="_blank" rel="noopener noreferrer">Claim on Twitch <svg><use href="#i-arrow"/></svg></a>' : '';
-      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${label}</strong></div><progress value="${done ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small>${claimLink}${dr.claimed ? codeButton(c.id, dr.rewardId, dr.redeemUrl, dr.name) : ''}</li>`;
+      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${label}</strong></div><progress value="${dr.claimable ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small>${claimLink}</li>`;
     }).join('');
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
     const linkState = c.quest ? '<span class="positive">Twitch quest · no link needed</span>'
       : `<span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account linked' : 'Account not linked'}</span>`;
     return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between">${linkState}<span class="meta">${ends ? 'until ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
-  }).join('') : `<div class="panel"><h2>No campaign in progress.</h2><p class="meta">Campaigns show up as soon as you collect watch time on a drop channel.${d.updatedAt ? ' Last checked ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
+  }).join('') : `<div class="panel"><h2>Nothing in progress.</h2><p class="meta">Campaigns show up as soon as you collect watch time on a drop channel. Claimed rewards are in your inventory.${d.updatedAt ? ' Last checked ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
 
   $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small>${codeButton(i.campaignId, i.id, i.redeemUrl, i.name)}</article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
 

@@ -162,10 +162,10 @@ def _quest_campaign(detail, drops, ends_at):
             "linked": True, "quest": True, "drops": drops}
 
 
-def quest_progress(in_progress, details, completed, now: float) -> list:
-    """Quest/reward-drop campaigns for "My progress": Twitch's own minutes per reward tier, plus completed quests
-    while their campaign still runs (Twitch drops those from the in-progress list)."""
-    out, seen = [], set()
+def quest_progress(in_progress, details) -> list:
+    """Quest/reward-drop campaigns for "My progress" with Twitch's own minutes per reward tier.
+    Claimed tiers are left out; they show up in the inventory."""
+    out = []
     for c in in_progress or []:
         detail = (details or {}).get(c.get("id"))
         if not detail:
@@ -174,34 +174,20 @@ def quest_progress(in_progress, details, completed, now: float) -> list:
         drops = []
         for g in detail.get("rewardGroups") or []:
             need = _watch_requirement(g)
-            if need is None:
-                continue
-            per, times = need
             me = mine.get(g.get("id")) or {}
             status = me.get("status")
-            claimed, claimable = status in ("CLAIMED", "FULFILLED"), status == "CLAIMABLE"
+            if need is None or status in ("CLAIMED", "FULFILLED"):
+                continue
+            per, times = need
+            claimable = status == "CLAIMABLE"
             grants, current = int(me.get("grantCount") or 0), int(me.get("currentMinutesWatched") or 0)
-            watched = per * times if claimed or claimable else min(per * times, grants * per + min(current, per))
+            watched = per * times if claimable else min(per * times, grants * per + min(current, per))
             reward = (g.get("rewards") or [{}])[0] or {}
             drops.append({"id": g.get("id"), "name": reward.get("name") or g.get("name") or detail.get("name"),
                           "image": reward.get("thumbnailURL"), "required": per * times, "watched": watched,
-                          "claimed": claimed, "claimable": claimable, "rewardId": reward.get("id"),
-                          "redeemUrl": redeem_url(reward, detail) if claimed else None})
+                          "claimed": False, "claimable": claimable, "rewardId": reward.get("id"), "redeemUrl": None})
         if drops:
-            seen.add(detail.get("id"))
             out.append(_quest_campaign(detail, drops, detail.get("endAt")))
-    for q in completed or []:
-        end = _epoch(q.get("endsAt"))
-        if q.get("id") in seen or (end is not None and end <= now):
-            continue
-        minutes = int((q.get("unlockRequirements") or {}).get("minuteWatchedGoal") or 0)
-        drops = [{"id": r.get("id"), "name": r.get("name") or q.get("name"),
-                  "image": _image(r.get("thumbnailImage")) or _image(r.get("bannerImage")), "required": minutes,
-                  "watched": minutes, "claimed": True, "claimable": False, "rewardId": r.get("id"),
-                  "redeemUrl": redeem_url(r, q)} for r in q.get("rewards") or []]
-        game = q.get("game") or {}
-        out.append(_quest_campaign({"id": q.get("id"), "name": q.get("name"), "imageURL": _image(q.get("image")),
-                                    "game": {"displayName": game.get("displayName")}}, drops, q.get("endsAt")))
     return out
 
 
