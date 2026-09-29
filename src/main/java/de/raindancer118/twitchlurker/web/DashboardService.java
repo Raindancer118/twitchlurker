@@ -149,10 +149,14 @@ public class DashboardService {
         var history = snapshots.historyAll(clock.instant().minus(Duration.ofDays(7)));
 
         var byLogin = new LinkedHashMap<String, MinerState.Streamer>();
-        state.snapshot().ifPresent(snap -> snap.streamers().forEach(st -> byLogin.put(st.login(), st)));
-        // Bot stopped: still show channels we have history for.
-        history.forEach((login, points) -> byLogin.computeIfAbsent(login, l -> new MinerState.Streamer(l, null, false, false,
-                points.getLast().points(), null, null, 0, null, 0, false, false, false, "follow", null, null)));
+        var snapshot = state.snapshot();
+        snapshot.ifPresent(snap -> snap.streamers().forEach(st -> byLogin.put(st.login(), st)));
+        // Bot stopped: still show channels we have history for. While it runs, only what it tracks: a former
+        // drop-scout channel or an unfollow would otherwise linger as an "offline" follow, even when it is live.
+        if (snapshot.isEmpty()) {
+            history.forEach((login, points) -> byLogin.computeIfAbsent(login, l -> new MinerState.Streamer(l, null, false, false,
+                    points.getLast().points(), null, null, 0, null, 0, false, false, false, "follow", null, null)));
+        }
 
         // The saved order is authoritative (the runner may lag a cycle behind); unranked channels keep the runner's order.
         var ordered = new ArrayList<>(byLogin.values());

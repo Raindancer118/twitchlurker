@@ -98,6 +98,26 @@ class TwitchlurkerApplicationTests {
         settingsStore.save(settingsStore.get().withSlots(null).withOrder(null));
     }
 
+    @Autowired
+    de.raindancer118.twitchlurker.events.SnapshotRepository snapshots;
+
+    @Autowired
+    de.raindancer118.twitchlurker.miner.MinerState minerState;
+
+    @Test
+    void channelsTheRunningBotNoLongerTracksAreNotListed() throws Exception {
+        snapshots.recordIfChanged("formerscout", java.time.Instant.now().minusSeconds(3600), 3490);
+        minerMessages.handleStdout(("{\"t\":\"state\",\"user\":\"u\",\"session\":\"s\",\"streamers\":["
+                + streamer("tracked", true, false) + "]}").replace("\n", ""));
+        mvc.perform(get("/api/channels").with(oidcLogin()))
+                .andExpect(jsonPath("$[?(@.login == 'tracked')]").exists())
+                .andExpect(jsonPath("$[?(@.login == 'formerscout')]").doesNotExist());
+
+        minerState.clearSession();
+        mvc.perform(get("/api/channels").with(oidcLogin()))
+                .andExpect(jsonPath("$[?(@.login == 'formerscout')].points").value(3490));
+    }
+
     @Test
     void healthIsPublicAndUp() throws Exception {
         mvc.perform(get("/actuator/health")).andExpect(status().isOk()).andExpect(jsonPath("$.status").value("UP"));
