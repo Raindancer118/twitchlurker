@@ -163,7 +163,12 @@ def _quest_campaign(detail, drops, ends_at):
             "linked": True, "quest": True, "drops": drops}
 
 
-def quest_progress(in_progress, details) -> list:
+def _ended(detail, now) -> bool:
+    end = _epoch((detail or {}).get("endAt"))
+    return now is not None and end is not None and end <= now
+
+
+def quest_progress(in_progress, details, now=None) -> list:
     """Quest/reward-drop campaigns for "My progress" with Twitch's own minutes per reward tier.
     Claimed tiers are left out; they show up in the inventory."""
     out = []
@@ -172,6 +177,8 @@ def quest_progress(in_progress, details) -> list:
         if not detail:
             continue
         mine = {g.get("id"): g.get("self") or {} for g in c.get("rewardGroups") or []}
+        # Twitch keeps an unclaimed tier CLAIMABLE after the campaign ended, yet refuses every claim.
+        expired = _ended(detail, now)
         drops = []
         for g in detail.get("rewardGroups") or []:
             need = _watch_requirement(g)
@@ -180,25 +187,27 @@ def quest_progress(in_progress, details) -> list:
             if need is None or status in ("CLAIMED", "FULFILLED"):
                 continue
             per, times = need
-            claimable = status == "CLAIMABLE"
+            claimable = status == "CLAIMABLE" and not expired
             grants, current = int(me.get("grantCount") or 0), int(me.get("currentMinutesWatched") or 0)
-            watched = per * times if claimable else min(per * times, grants * per + min(current, per))
+            watched = per * times if status == "CLAIMABLE" else min(per * times, grants * per + min(current, per))
             reward = (g.get("rewards") or [{}])[0] or {}
             drops.append({"id": g.get("id"), "name": reward.get("name") or g.get("name") or detail.get("name"),
                           "image": reward.get("thumbnailURL"), "required": per * times, "watched": watched,
-                          "claimed": False, "claimable": claimable, "rewardId": reward.get("id"), "redeemUrl": None})
+                          "claimed": False, "claimable": claimable, "rewardId": reward.get("id"), "redeemUrl": None, "expired": expired})
         if drops:
             out.append(_quest_campaign(detail, drops, detail.get("endAt")))
     return out
 
 
-def claimable_instances(in_progress, details, user_id) -> list:
+def claimable_instances(in_progress, details, user_id, now=None) -> list:
     """(dropInstanceID, reward name) for earned-but-unclaimed watch tiers. Twitch's own drops page claims
     these with the instance id user#campaign#rewardGroup."""
     if not user_id:
         return []
     out = []
     for c in in_progress or []:
+        if _ended((details or {}).get(c.get("id")), now):
+            continue
         groups = {g.get("id"): g for g in ((details or {}).get(c.get("id")) or {}).get("rewardGroups") or []}
         for g in c.get("rewardGroups") or []:
             detail = groups.get(g.get("id"))

@@ -460,7 +460,7 @@ def test_quest_progress_from_reward_drop_campaigns():
     assert creeper["image"] == "https://x/mc-285x380.jpg" and creeper["endsAt"] == "2026-09-27T06:58:59.999Z" and creeper["linked"] is True
     assert creeper["drops"] == [{"id": "g-creeper", "name": "Corrupted Creeper Cape", "image": "https://x/creeper.png",
                                  "required": 15, "watched": 15, "claimed": False, "claimable": True,
-                                 "rewardId": "r-creeper", "redeemUrl": None}]
+                                 "rewardId": "r-creeper", "redeemUrl": None, "expired": False}]
     # Channel badge campaigns: no game, sub tiers can't be lurked and stay out.
     s0ph = camps["s0ph"]
     assert s0ph["game"] is None and s0ph["image"] == "https://x/badge.png"
@@ -573,3 +573,17 @@ def test_in_progress_games():
     inv = {"dropCampaignsInProgress": [{"game": {"displayName": "Minecraft"}}, {"game": {"name": "Rust"}}, {}]}
     assert core.in_progress_games(inv) == {"minecraft", "rust"}
     assert core.in_progress_games(None) == set()
+
+
+def test_expired_quests_are_no_longer_claimable():
+    # Twitch keeps an unclaimed tier CLAIMABLE after the campaign ended, but refuses the claim (web page too).
+    after_end = _epoch_of("2026-09-28T00:00:00Z")
+    creeper = {c["id"]: c for c in core.quest_progress(IN_PROGRESS, DETAILS, now=after_end)}["creeper"]["drops"][0]
+    assert creeper["expired"] is True and creeper["claimable"] is False
+    assert core.claimable_instances(IN_PROGRESS, DETAILS, "926", now=after_end) == []
+    before_end = _epoch_of("2026-09-26T00:00:00Z")
+    assert core.claimable_instances(IN_PROGRESS, DETAILS, "926", now=before_end) == [("926#creeper#g-creeper", "Corrupted Creeper Cape")]
+
+
+def _epoch_of(iso):
+    return core._epoch(iso)

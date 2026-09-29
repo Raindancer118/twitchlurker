@@ -5,6 +5,8 @@ const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 const nf = new Intl.NumberFormat();
 const fmt = n => nf.format(Math.round(n || 0));
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const twitchLink = login => login
+  ? `<a class="channel-link" href="https://www.twitch.tv/${encodeURIComponent(login)}" target="_blank" rel="noopener noreferrer">${esc(login)}</a>` : '';
 const time = iso => iso ? new Date(iso).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' }) : '';
 const dateTime = iso => iso ? new Date(iso).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '–';
 const SCREENS = { overview: 'Overview', channels: 'Channels', drops: 'Drops', raffles: 'Raffles', bot: 'Bot & Login', settings: 'Settings' };
@@ -219,7 +221,7 @@ function initial(name) {
 
 // ---------- Overview ----------
 function eventView(e) {
-  const who = esc(e.login || '');
+  const who = twitchLink(e.login);
   switch (e.type) {
     case 'POINTS': {
       const titles = { WATCH: 'Watch time credited', CLAIM: 'Bonus collected', WATCH_STREAK: 'Watch streak kept', RAID: 'Raid bonus' };
@@ -227,7 +229,7 @@ function eventView(e) {
     }
     case 'BONUS': return ['+', 'Bonus chest opened', who];
     case 'MOMENT': return ['✧', 'Moment claimed', who];
-    case 'RAID': return ['↪', 'Followed a raid', `${who} → ${esc(e.detail || '?')}`];
+    case 'RAID': return ['↪', 'Followed a raid', `${who} → ${twitchLink(e.detail) || '?'}`];
     case 'DROP': return ['◇', 'Drop claimed', esc(e.detail || '')];
     case 'ADDED': return ['↗', e.detail === 'drops' ? 'Added for drops' : e.detail === 'follow' ? 'New follow' : 'Channel added', who];
     case 'REMOVED': return ['↘', 'Unfollowed', who];
@@ -308,7 +310,7 @@ function renderSlots() {
     }
     renderSlotMedia(el.querySelector('.slot-media'), s?.login);
     el.querySelector('.avatar').textContent = s ? s.login.charAt(0).toUpperCase() : '·';
-    el.querySelector('h3').textContent = s ? s.login : 'Nobody right now';
+    el.querySelector('h3').innerHTML = s ? twitchLink(s.login) : 'Nobody right now';
     el.querySelector('.slot-identity p').textContent = s ? (s.title || '') : (o.bot.status !== 'RUNNING' ? 'The bot isn’t running.' : 'None of your channels is live.');
     const open = el.querySelector('.slot-identity .icon-button');
     open.hidden = !s;
@@ -424,7 +426,7 @@ function channelRow(c, sortable) {
     ? `<button class="grip" type="button" aria-label="Move ${esc(c.login)}" data-grip="${esc(c.login)}"><svg><use href="#i-grip"/></svg></button><span class="rank">${c.rank}</span><span class="move"><button type="button" data-move="-1" data-login="${esc(c.login)}" aria-label="Move ${esc(c.login)} up"><svg><use href="#i-up"/></svg></button><button type="button" data-move="1" data-login="${esc(c.login)}" aria-label="Move ${esc(c.login)} down"><svg><use href="#i-down"/></svg></button></span>`
     : `<span class="rank">${c.rank}</span>`;
   return `<li class="channel-row" data-login="${esc(c.login)}" data-live="${c.online}"><div class="order-cell">${order}</div>
-<div class="channel-name"><span class="avatar">${initial(c.login)}</span><div><strong>${esc(c.login)}</strong><small>${c.online ? '<span class="live-dot"></span>' : ''}${esc(status)} ${tags}</small></div></div>
+<div class="channel-name"><span class="avatar">${initial(c.login)}</span><div><strong>${twitchLink(c.login)}</strong><small>${c.online ? '<span class="live-dot"></span>' : ''}${esc(status)} ${tags}</small></div></div>
 <div class="value"><span class="mobile-label">Points </span>${fmt(c.points)}</div><div class="gain"><span class="mobile-label">Today </span>+${fmt(c.gainedToday)}</div>
 ${spark ? `<svg class="sparkline" viewBox="0 0 120 34" role="img" aria-label="Points history of ${esc(c.login)}, 7 days"><polyline points="${spark}" pathLength="1"/></svg>` : '<span class="meta spark-empty">no history yet</span>'}
 <button class="icon-button channel-open" data-channel="${esc(c.login)}" aria-label="Open ${esc(c.login)}"><svg><use href="#i-arrow"/></svg></button></li>`;
@@ -548,7 +550,7 @@ async function openChannel(login) {
   const dialog = $('#channel-dialog');
   const detail = await api(`/api/channels/${encodeURIComponent(login)}?days=30`);
   const c = detail.channel;
-  $('#detail-name').textContent = login;
+  $('#detail-name').innerHTML = twitchLink(login);
   $('#detail-info').textContent = c ? (c.online ? `Live · ${c.game || ''} · ${fmt(c.viewers)} viewers` : 'Offline right now') : '';
   $('#detail-points').textContent = c ? fmt(c.points) : '–';
   $('#detail-gain').textContent = c ? '+' + fmt(c.gainedToday) : '–';
@@ -631,7 +633,8 @@ function renderDrops() {
     const ends = c.endsAt ? new Date(c.endsAt).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const drops = c.drops.map(dr => {
       const pct = dr.required ? Math.min(100, Math.round(dr.watched / dr.required * 100)) : 0;
-      const label = dr.claimable ? '<span class="claimed">Ready to claim</span>' : pct + '%';
+      const label = dr.expired ? '<span class="warning-text">Expired, can no longer be claimed</span>'
+        : dr.claimable ? '<span class="claimed">Ready to claim</span>' : pct + '%';
       const claimLink = dr.claimable ? '<a class="text-link" href="https://www.twitch.tv/drops/inventory" target="_blank" rel="noopener noreferrer">Claim on Twitch <svg><use href="#i-arrow"/></svg></a>' : '';
       return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${label}</strong></div><progress value="${dr.claimable ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small>${claimLink}</li>`;
     }).join('');
@@ -644,7 +647,7 @@ function renderDrops() {
   $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small>${codeButton(i.campaignId, i.id, i.redeemUrl, i.name)}</article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
 
   const scouted = d.scouted || [];
-  $('#scouted').innerHTML = `<h2>Drop hunt</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'The bot added these channels for running campaigns.' : 'Active. No extra channels needed yet.') : 'Off. Only your own channels collect drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
+  $('#scouted').innerHTML = `<h2>Drop hunt</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'The bot added these channels for running campaigns.' : 'Active. No extra channels needed yet.') : 'Off. Only your own channels collect drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${twitchLink(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
   $('#nav-drops').hidden = !d.campaigns.length;
   $('.tab-dot').hidden = !d.campaigns.length;
   renderWatchlist();

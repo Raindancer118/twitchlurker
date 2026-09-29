@@ -10,7 +10,7 @@
 	</parent>
 	<groupId>de.raindancer118</groupId>
 	<artifactId>twitchlurker</artifactId>
-	<version>0.11.4</version>
+	<version>0.12.0</version>
 	<name>twitchlurker</name>
 	<description>24/7 Twitch lurker with web dashboard</description>
 	<properties>

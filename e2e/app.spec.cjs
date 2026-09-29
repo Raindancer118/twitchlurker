@@ -50,10 +50,14 @@ for (const scheme of ['dark', 'light']) {
 
       await go(page, 'channels');
       await expect(page.locator('#channel-list .channel-row')).toHaveCount(4);
+      const nameLink = page.locator('#channel-list .channel-row[data-login="zarbex"] .channel-link');
+      await expect(nameLink).toHaveAttribute('href', 'https://www.twitch.tv/zarbex');
+      await expect(nameLink).toHaveAttribute('target', '_blank');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-channels.png`, fullPage: true });
       await page.click('#channel-list [data-channel="zarbex"]');
       await expect(page.locator('#channel-dialog')).toBeVisible();
       await expect(page.locator('#detail-name')).toHaveText('zarbex');
+      await expect(page.locator('#detail-name a')).toHaveAttribute('href', 'https://www.twitch.tv/zarbex');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-detail.png` });
       await page.keyboard.press('Escape');
 
@@ -189,11 +193,16 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   const creeper = page.locator('#campaigns .campaign', { hasText: 'Corrupted Creeper Cape' });
   await expect(creeper).toContainText('Ready to claim');
   await expect(creeper.getByRole('link', { name: 'Claim on Twitch' })).toHaveAttribute('href', 'https://www.twitch.tv/drops/inventory');
+  // Twitch still calls an ended quest's tier claimable, but nothing can claim it anymore.
+  const ended = page.locator('#campaigns .campaign', { hasText: 'Ended Cape Quest' });
+  await expect(ended).toContainText('Expired, can no longer be claimed');
+  await expect(ended).not.toContainText('Ready to claim');
+  await expect(ended.getByRole('link', { name: 'Claim on Twitch' })).toHaveCount(0);
   // Claimed rewards stay out of progress: finished quests entirely, finished drops of running campaigns too.
   await expect(page.locator('#campaigns .campaign', { hasText: 'Aurora Cape' })).toHaveCount(0);
   await expect(page.locator('#campaigns .campaign', { hasText: 'Rust' })).toContainText('Hazmat Suit');
   await expect(page.locator('#campaigns')).not.toContainText('Garage Door Skin');
-  await expect(page.locator('#campaign-count')).toHaveText('3');
+  await expect(page.locator('#campaign-count')).toHaveText('4');
 
   await page.click('[data-drop-tab="inventory"]');
   await expect(page.locator('#inventory-grid .inventory-item').first()).toContainText('Aurora Cape');

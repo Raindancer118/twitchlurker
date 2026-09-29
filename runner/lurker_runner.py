@@ -269,14 +269,14 @@ def inventory_loop(miner):
             try:
                 user_id, in_progress, details = fetch_quest_progress(twitch)
                 # TCPM only claims classic drops; earned quest tiers would otherwise expire unclaimed.
-                tried = core.claims_due(core.claimable_instances(in_progress, details, user_id), claim_attempts, time.time())
+                tried = core.claims_due(core.claimable_instances(in_progress, details, user_id, time.time()), claim_attempts, time.time())
                 for instance_id, _ in tried:
                     claim_attempts[instance_id] = time.time()
                     claim_reward_drop(twitch, instance_id)
                 if tried:
                     # Twitch can answer a claim with success and still leave it unclaimed, so trust only a re-read.
                     user_id, in_progress, details = fetch_quest_progress(twitch)
-                    still = {i for i, _ in core.claimable_instances(in_progress, details, user_id)}
+                    still = {i for i, _ in core.claimable_instances(in_progress, details, user_id, time.time())}
                     for instance_id, name in tried:
                         if instance_id in still:
                             emit({"t": "log", "level": "INFO", "logger": "runner",
@@ -284,7 +284,7 @@ def inventory_loop(miner):
                         else:
                             claimed_now.add(instance_id.split("#")[1])
                             emit({"t": "event", "event": "DROP", "name": name})
-                snap["campaigns"] += core.quest_progress(in_progress, details)
+                snap["campaigns"] += core.quest_progress(in_progress, details, time.time())
             except Exception as e:
                 emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read quest progress: {e}"})
             emit({"t": "drops", **snap})

@@ -17,7 +17,7 @@ public class MinerState {
 
     /** rewardId/redeemUrl are set for quest rewards: the pair looks up a redeem code, the URL is where it goes. */
     public record Drop(String id, String name, String image, int required, int watched, boolean claimed, Boolean claimable,
-                       String rewardId, String redeemUrl) {}
+                       String rewardId, String redeemUrl, Boolean expired) {}
 
     public record Campaign(String id, String name, String game, String image, String endsAt, boolean linked, Boolean quest,
                            List<Drop> drops) {}
