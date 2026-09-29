@@ -168,12 +168,21 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await page.setViewportSize({ width: 1440, height: 1000 });
   await login(page);
   await go(page, 'drops');
-  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(4, { timeout: 15_000 });
+  await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(5, { timeout: 15_000 });
+  // Twitch quests pay on any stream of the game and say when they are already earned.
+  const aurora = page.locator('.catalogue-item', { hasText: 'Aurora Cape' });
+  await expect(aurora).toContainText('Earned ✓');
+  await expect(aurora).toContainText('Twitch quest · any Minecraft stream');
+  await expect(aurora).toContainText('no account link needed');
+  await expect(page.locator('#catalogue-grid .catalogue-item').last()).toContainText('Aurora Cape');
   // Sub-gift drops must not look like something lurking can earn; channel-restricted ones name their channels.
   await expect(page.locator('.catalogue-item', { hasText: 'D&D Ampersand Badge' })).toContainText("lurking can't earn it");
   await expect(page.locator('.catalogue-item', { hasText: 'D&D Ampersand Badge' })).toContainText('1 sub');
   await expect(page.locator('.catalogue-item', { hasText: 'Minecraft Live 2026' })).toContainText('Only on papaplatte, gronkh');
-  await page.fill('#drop-search', 'cape');
+  await page.click('[data-drop-tab="inventory"]');
+  await expect(page.locator('#inventory-grid .inventory-item').first()).toContainText('Aurora Cape');
+  await page.click('[data-drop-tab="catalogue"]');
+  await page.fill('#drop-search', 'twitch cape');
   await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(1);
   await expect(page.locator('#catalogue-grid')).toContainText('Minecraft Live 2026');
   await page.fill('#drop-search', '');
@@ -184,7 +193,7 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await page.fill('#watch-input', 'Minecraft');
   await page.click('#watch-form button[type=submit]');
   await expect(page.locator('#watch-chips')).toContainText('Minecraft');
-  await expect(page.locator('#catalogue-grid .catalogue-item.watched')).toHaveCount(1, { timeout: 10_000 });
+  await expect(page.locator('#catalogue-grid .catalogue-item.watched')).toHaveCount(2, { timeout: 10_000 });
   await page.screenshot({ path: 'shots/drops-catalogue.png', fullPage: true });
   await page.click('[data-unwatch="Minecraft"]');
   await expect(page.locator('#watch-chips')).not.toContainText('Minecraft');

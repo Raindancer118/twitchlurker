@@ -41,6 +41,7 @@ from TwitchChannelPointsMiner.classes.entities.Streamer import Streamer, Streame
 from TwitchChannelPointsMiner.classes.Exceptions import StreamerDoesNotExistException  # noqa: E402
 from TwitchChannelPointsMiner.classes.Settings import Settings  # noqa: E402
 from TwitchChannelPointsMiner.classes.Twitch import Twitch  # noqa: E402
+from TwitchChannelPointsMiner.constants import GQLOperations  # noqa: E402
 from TwitchChannelPointsMiner.logger import LoggerSettings  # noqa: E402
 from TwitchChannelPointsMiner.utils import set_default_settings  # noqa: E402
 
@@ -203,11 +204,17 @@ def state_loop(miner, config):
 
 def inventory_loop(miner):
     wait_until_running(miner)
+    quests = None
     while miner.running:
         try:
             inventory = miner.twitch._Twitch__get_inventory()
             snap = core.inventory_snapshot(inventory)
             emit({"t": "drops", **snap})
+            # Quest rewards are granted by Twitch itself, so no claim_drop hook ever sees them.
+            if inventory:
+                for name in core.new_quest_rewards(quests, inventory):
+                    emit({"t": "event", "event": "DROP", "name": name})
+                quests = core.completed_quest_ids(inventory)
         except Exception as e:
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read inventory: {e}"})
         time.sleep(300)
@@ -226,6 +233,16 @@ def fetch_community_drops(url):
     r.raise_for_status()
     data = r.json()
     return data if isinstance(data, list) else None
+
+
+def fetch_quests(twitch):
+    """Reward campaigns ("quests") the user can earn; unlike dropCampaigns, Twitch still answers this for the TV client."""
+    try:
+        response = twitch.post_gql_request(GQLOperations.ViewerDropsDashboard)
+        return ((response or {}).get("data") or {}).get("rewardCampaignsAvailableToUser") or []
+    except Exception as e:
+        emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read quests: {e}"})
+        return []
 
 
 slug_cache = {}
@@ -273,7 +290,9 @@ def drops_loop(miner, config):
                 except Exception as e:
                     emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Drop list unreachable: {e}"})
             inventory = twitch._Twitch__get_inventory() or {}
-            catalogue = core.community_catalogue(community, watch_games, core.linked_from_inventory(inventory))
+            catalogue = core.sort_catalogue(
+                core.quest_catalogue(fetch_quests(twitch), core.completed_quest_ids(inventory), watch_games, time.time())
+                + core.community_catalogue(community, watch_games, core.linked_from_inventory(inventory)))
             access = "community" if community is not None else "unavailable"
             emit({"t": "campaigns", "campaigns": catalogue, "access": access})
             emit({"t": "log", "level": "INFO", "logger": "runner",

@@ -31,6 +31,9 @@ def catalogue():
         {"id": "dnd-amp", "name": "D&D Ampersand Badge", "game": "Dungeons & Dragons", "gameId": "509577", "image": None, "status": "ACTIVE",
          "startAt": "2026-09-24T00:00:00Z", "endAt": "2026-10-21T00:00:00Z", "linked": None, "linkUrl": None, "channels": [],
          "watchable": False, "rewards": [{"name": "Ampersand Badge", "image": None, "minutes": 0, "subs": 1}]},
+        {"id": "aurora", "name": "Aurora Cape", "game": "Minecraft", "gameId": "27471", "image": None, "status": "ACTIVE",
+         "startAt": "2026-09-29T07:00:00Z", "endAt": "2026-10-15T06:58:59Z", "linked": None, "linkUrl": None, "channels": [],
+         "watchable": True, "quest": True, "completed": True, "rewards": [{"name": "Aurora Cape", "image": None, "minutes": 15, "subs": 0}]},
     ]
     for c in items:
         c["watched"] = c["game"].lower() in watch
@@ -70,7 +73,8 @@ out({"t": "event", "event": "DROP", "name": "Door", "benefit": "Garage Door Skin
 out({"t": "drops", "campaigns": [{"id": "c1", "name": "Rust Twitch Drops #40", "game": "Rust", "image": None, "endsAt": "2026-10-02T18:00:00Z", "linked": True,
       "drops": [{"id": "d1", "name": "Hazmat Suit", "image": None, "required": 120, "watched": 75, "claimed": False},
                 {"id": "d2", "name": "Garage Door Skin", "image": None, "required": 60, "watched": 60, "claimed": True}]}],
-     "claimed": [{"id": "b2", "name": "Garage Door Skin", "image": None, "at": "2026-09-27T14:02:00Z", "game": "Rust"}]})
+     "claimed": [{"id": "r-aurora", "name": "Aurora Cape", "image": None, "at": None, "game": "Minecraft"},
+                 {"id": "b2", "name": "Garage Door Skin", "image": None, "at": "2026-09-27T14:02:00Z", "game": "Rust"}]})
 out({"t": "campaigns", "campaigns": catalogue()})
 threading.Thread(target=state_loop, daemon=True).start()
 for line in sys.stdin:

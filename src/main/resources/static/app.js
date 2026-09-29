@@ -662,7 +662,7 @@ function renderCatalogue() {
   const updated = state.drops?.catalogueUpdatedAt;
   const access = state.drops?.catalogueAccess;
   $('#catalogue-meta').textContent = all.length
-    ? `${list.length} of ${all.length} campaigns${updated ? ' · as of ' + time(updated) : ''} · source: community list twitch-drops-api.sunkwi.com`
+    ? `${list.length} of ${all.length} campaigns${updated ? ' · as of ' + time(updated) : ''} · sources: Twitch quests + community list twitch-drops-api.sunkwi.com`
     : access === 'unavailable'
       ? 'The drop list is unreachable right now. The bot still looks for watched games directly on Twitch.'
       : 'The bot is loading the campaigns (takes a minute or two after startup).';
@@ -672,9 +672,13 @@ function renderCatalogue() {
     const rewards = c.rewards.slice(0, 6).map(r => `<li>${r.image ? `<img src="${esc(r.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="28" height="28">` : ''}<span>${esc(r.name)}</span><small>${r.subs ? `${fmt(r.subs)} sub${r.subs > 1 ? 's' : ''}` : `${fmt(r.minutes)} min`}</small></li>`).join('');
     const more = c.rewards.length > 6 ? `<li class="meta">+${c.rewards.length - 6} more</li>` : '';
     const where = c.watchable === false ? 'Needs a bought or gifted sub, lurking can\'t earn it'
+      : c.quest ? (c.game ? `Twitch quest · any ${c.game} stream` : 'Twitch quest · any stream')
       : c.channels.length ? `Only on ${c.channels.slice(0, 3).join(', ')}${c.channels.length > 3 ? ` +${c.channels.length - 3}` : ''}` : 'On all drop streams';
+    const linkState = c.quest ? 'no account link needed' : c.linked === true ? '<span class="positive">✓ linked</span>' : c.linked === false ? 'not linked' : 'link status unknown';
+    const tag = c.completed ? '<span class="tag done">Earned ✓</span>' : `<span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Running' : 'Soon'}</span>`;
+    const watchButton = c.game ? `<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game)}" aria-pressed="${watched}">${watched ? 'Watching ✓' : 'Watch'}</button>` : '';
     const link = c.linked !== true && c.linkUrl && /^https:\/\//.test(c.linkUrl) ? `<a class="text-link" href="${esc(c.linkUrl)}" target="_blank" rel="noopener noreferrer">Link account <svg><use href="#i-arrow"/></svg></a>` : '';
-    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between"><span class="tag ${c.status === 'ACTIVE' ? 'hot' : ''}">${c.status === 'ACTIVE' ? 'Running' : 'Soon'}</span><span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${c.linked === true ? '<span class="positive">✓ linked</span>' : c.linked === false ? 'not linked' : 'link status unknown'}</p><div class="button-row">${link}<button type="button" class="secondary watch-toggle" data-watch-game="${esc(c.game || '')}" aria-pressed="${watched}">${watched ? 'Watching ✓' : 'Watch'}</button></div></div></article>`;
+    return `<article class="campaign panel catalogue-item${watched ? ' watched' : ''}">${art}<div class="campaign-body"><div class="row-between">${tag}<span class="meta">${esc(timeWindow(c))}</span></div><p class="eyebrow">${esc(c.game || (c.quest ? 'All of Twitch' : ''))}</p><h2>${esc(c.name)}</h2><ul class="reward-list">${rewards}${more}</ul><p class="meta">${esc(where)} · ${linkState}</p><div class="button-row">${link}${watchButton}</div></div></article>`;
   }).join('') || '<div class="panel"><p class="meta">Nothing found.</p></div>';
 }
 

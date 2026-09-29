@@ -349,3 +349,75 @@ def test_stale_scouts():
              "switched": "Just Chatting", "offline": None}
     # Offline scouts stay (they may come back); streams on games nobody hunts anymore go.
     assert sorted(core.stale_scouts(games, plans)) == ["juicerewards", "rusty", "switched"]
+
+
+def quest(qid, name, game, minutes=15, subs=0, starts="2026-09-29T07:00:00Z", ends="2026-10-15T06:58:59.999Z"):
+    """A Twitch reward campaign ("quest") as ViewerDropsDashboard/Inventory return it to the TV client."""
+    return {"id": qid, "name": name, "status": "UNKNOWN", "startsAt": starts, "endsAt": ends, "isSitewide": game is None,
+            "summary": f"Watch {minutes} minutes", "externalURL": "https://www.minecraft.net/redeem",
+            "game": {"id": "27471", "slug": "minecraft", "displayName": game} if game else None,
+            "unlockRequirements": {"subsGoal": subs, "minuteWatchedGoal": minutes},
+            "image": {"image1xURL": f"https://x/{qid}-campaign.png"},
+            "rewards": [{"id": f"r-{qid}", "name": name, "thumbnailImage": {"image1xURL": f"https://x/{qid}.png"},
+                         "redemptionURL": "https://www.minecraft.net/redeem"}]}
+
+
+AURORA = quest("aurora", "Aurora Cape", "Minecraft")
+BUILDER = quest("builder", "Builder Cape", "Minecraft", minutes=5, starts="2026-05-30T15:30:00Z", ends="2026-06-15T06:59:59.999Z")
+
+
+def test_inventory_snapshot_lists_completed_quests_as_claimed_newest_first():
+    inv = {**INVENTORY, "completedRewardCampaigns": [BUILDER, AURORA]}
+    claimed = core.inventory_snapshot(inv)["claimed"]
+    assert [c["name"] for c in claimed] == ["Aurora Cape", "Door Skin", "Builder Cape"]
+    # Twitch doesn't say when a quest was completed.
+    assert claimed[0] == {"id": "r-aurora", "name": "Aurora Cape", "image": "https://x/aurora.png", "at": None, "game": "Minecraft"}
+
+
+def test_completed_quest_ids():
+    assert core.completed_quest_ids({"completedRewardCampaigns": [AURORA, BUILDER]}) == {"aurora", "builder"}
+    assert core.completed_quest_ids({"completedRewardCampaigns": None}) == set()
+    assert core.completed_quest_ids(None) == set()
+
+
+def test_new_quest_rewards_only_after_a_baseline():
+    inv = {"completedRewardCampaigns": [BUILDER, AURORA]}
+    assert core.new_quest_rewards(None, inv) == []
+    assert core.new_quest_rewards({"builder"}, inv) == ["Aurora Cape"]
+    assert core.new_quest_rewards({"builder", "aurora"}, inv) == []
+
+
+NOW = 1790000000.0  # 2026-09-21T14:13:20Z
+
+
+def test_quest_catalogue():
+    pokemon = quest("poke", "First Partners Collection", None, minutes=20, starts="2026-08-24T17:00:00Z", ends="2026-10-01T07:00:00Z")
+    gift = quest("gift", "Great Ball", None, minutes=0, subs=2, starts="2026-08-24T17:00:00Z", ends="2026-10-01T07:00:00Z")
+    over = quest("over", "Old", "Minecraft", starts="2026-08-01T00:00:00Z", ends="2026-09-01T00:00:00Z")
+    cat = {c["id"]: c for c in core.quest_catalogue([AURORA, pokemon, gift, over], {"aurora"}, ["minecraft"], NOW)}
+    assert set(cat) == {"aurora", "poke", "gift"}
+    a = cat["aurora"]
+    assert a["quest"] is True and a["completed"] is True and a["watched"] is True and a["watchable"] is True
+    assert a["game"] == "Minecraft" and a["gameId"] == "27471" and a["status"] == "UPCOMING"
+    assert a["startAt"] == "2026-09-29T07:00:00Z" and a["channels"] == [] and a["linkUrl"] is None and a["linked"] is None
+    assert a["image"] == "https://x/aurora-campaign.png"
+    assert a["rewards"] == [{"name": "Aurora Cape", "image": "https://x/aurora.png", "minutes": 15, "subs": 0}]
+    assert cat["poke"]["status"] == "ACTIVE" and cat["poke"]["game"] is None and cat["poke"]["completed"] is False
+    assert cat["gift"]["watchable"] is False
+    assert core.quest_catalogue(None, set(), [], NOW) == []
+
+
+def test_sort_catalogue_puts_finished_campaigns_last():
+    cat = core.community_catalogue(COMMUNITY, ["minecraft"], {})
+    quests = core.quest_catalogue([AURORA], {"aurora"}, ["minecraft"], NOW)
+    assert [c["id"] for c in core.sort_catalogue(quests + cat)] == ["mc1", "rust1", "aurora"]
+
+
+def test_drop_channel_plan_counts_open_quests_and_ignores_earned_ones():
+    quests = core.quest_catalogue([AURORA], set(), [], NOW)
+    # The community campaign is locked to papaplatte, but the quest pays on any Minecraft stream.
+    cat = core.community_catalogue(COMMUNITY, [], {})
+    assert core.drop_channel_plan(cat + quests, "Minecraft") == {"skip": None, "allowed": None, "prefer": {"papaplatte"}}
+    earned = core.quest_catalogue([AURORA], {"aurora"}, [], NOW)
+    assert core.drop_channel_plan(earned, "Minecraft")["skip"] == "everything already earned"
+    assert core.drop_channel_plan(cat + earned, "Minecraft")["allowed"] == {"papaplatte"}

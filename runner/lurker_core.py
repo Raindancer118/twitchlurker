@@ -2,6 +2,7 @@
 import os
 import pickle
 import re
+from datetime import datetime
 from pathlib import Path
 
 from TwitchChannelPointsMiner.classes.Settings import Priority
@@ -97,11 +98,35 @@ def inventory_snapshot(inventory: dict) -> dict:
             "drops": drops,
         })
     claimed = [
-        {"id": b.get("id"), "name": b.get("name"), "image": b.get("imageURL"),
-         "at": b.get("lastAwardedAt"), "game": (b.get("game") or {}).get("name")}
+        ({"id": b.get("id"), "name": b.get("name"), "image": b.get("imageURL"),
+          "at": b.get("lastAwardedAt"), "game": (b.get("game") or {}).get("name")}, b.get("lastAwardedAt"))
         for b in inventory.get("gameEventDrops") or []
     ]
-    return {"campaigns": campaigns, "claimed": claimed}
+    # Quests ("reward campaigns", e.g. Minecraft capes) never show up as drops; Twitch only lists them once completed.
+    for q in inventory.get("completedRewardCampaigns") or []:
+        for r in q.get("rewards") or []:
+            claimed.append(({"id": r.get("id"), "name": r.get("name") or q.get("name"),
+                             "image": _image(r.get("thumbnailImage")) or _image(r.get("bannerImage")),
+                             "at": None, "game": (q.get("game") or {}).get("displayName")}, q.get("startsAt")))
+    claimed.sort(key=lambda item: item[1] or "", reverse=True)
+    return {"campaigns": campaigns, "claimed": [item for item, _ in claimed]}
+
+
+def _image(image_set):
+    return (image_set or {}).get("image1xURL")
+
+
+def completed_quest_ids(inventory) -> set:
+    return {q["id"] for q in (inventory or {}).get("completedRewardCampaigns") or [] if q.get("id")}
+
+
+def new_quest_rewards(previous, inventory) -> list:
+    """Reward names of quests completed since the last inventory read (None = first read, nothing is new)."""
+    if previous is None:
+        return []
+    return [r.get("name") or q.get("name")
+            for q in (inventory or {}).get("completedRewardCampaigns") or [] if q.get("id") not in previous
+            for r in q.get("rewards") or [{}]]
 
 
 def finished_campaign_ids(inventory_snap: dict) -> set:
@@ -256,7 +281,40 @@ def community_catalogue(data, watch_games, linked) -> list:
                 "linkUrl": c.get("accountLinkURL"), "channels": channels, "rewards": rewards,
                 "watched": game_watched(game, watch_games), "watchable": watchable,
             })
-    out.sort(key=lambda x: (not x["watched"], x["status"] != "ACTIVE", x["endAt"] or ""))
+    return sort_catalogue(out)
+
+
+def sort_catalogue(campaigns) -> list:
+    return sorted(campaigns, key=lambda x: (bool(x.get("completed")), not x["watched"], x["status"] != "ACTIVE", x["endAt"] or ""))
+
+
+def _epoch(iso):
+    try:
+        return datetime.fromisoformat(iso.replace("Z", "+00:00")).timestamp()
+    except (AttributeError, ValueError):
+        return None
+
+
+def quest_catalogue(reward_campaigns, completed, watch_games, now: float) -> list:
+    """Twitch quests available to the user, in the same shape as community_catalogue entries.
+    Twitch reports their status as UNKNOWN, so it is derived from the time window."""
+    out = []
+    for q in reward_campaigns or []:
+        start, end = _epoch(q.get("startsAt")), _epoch(q.get("endsAt"))
+        if end is not None and end <= now:
+            continue
+        need = q.get("unlockRequirements") or {}
+        minutes, subs = int(need.get("minuteWatchedGoal") or 0), int(need.get("subsGoal") or 0)
+        game = q.get("game") or {}
+        out.append({
+            "id": q.get("id"), "name": q.get("name"), "game": game.get("displayName"), "gameId": game.get("id"),
+            "image": _image(q.get("image")), "status": "UPCOMING" if start and start > now else "ACTIVE",
+            "startAt": q.get("startsAt"), "endAt": q.get("endsAt"), "linked": None, "linkUrl": None, "channels": [],
+            "rewards": [{"name": r.get("name"), "image": _image(r.get("thumbnailImage")) or _image(r.get("bannerImage")),
+                         "minutes": minutes, "subs": subs} for r in q.get("rewards") or []],
+            "watched": game_watched(game, watch_games), "watchable": subs == 0 and minutes > 0,
+            "quest": True, "completed": q.get("id") in (completed or ()),
+        })
     return out
 
 
@@ -264,8 +322,10 @@ def drop_channel_plan(catalogue, game_name: str) -> dict:
     """Which directory streams count for a game: skip it, restrict to listed channels, or take any drop stream."""
     name = (game_name or "").lower()
     campaigns = [c for c in catalogue or [] if (c.get("game") or "").lower() == name]
-    earnable = [c for c in campaigns if c.get("watchable", True)]
+    earnable = [c for c in campaigns if c.get("watchable", True) and not c.get("completed")]
     if campaigns and not earnable:
+        if any(c.get("completed") for c in campaigns):
+            return {"skip": "everything already earned", "allowed": None, "prefer": set()}
         return {"skip": "only sub-gift drops, nothing to earn by watching", "allowed": None, "prefer": set()}
     listed = {ch for c in earnable for ch in c["channels"]}
     allowed = listed if earnable and all(c["channels"] for c in earnable) else None

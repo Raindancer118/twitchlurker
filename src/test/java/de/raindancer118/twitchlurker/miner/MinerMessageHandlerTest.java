@@ -100,6 +100,15 @@ class MinerMessageHandlerTest {
         assertThat(catalogue.campaigns().getFirst().watched()).isTrue();
         assertThat(catalogue.access()).isEqualTo("missing");
 
+        // Twitch quests (e.g. Minecraft capes) carry whether they are already earned.
+        handler.handleStdout("{\"t\":\"campaigns\",\"access\":\"community\",\"campaigns\":[{\"id\":\"aurora\",\"name\":\"Aurora Cape\",\"game\":\"Minecraft\","
+                + "\"gameId\":\"27471\",\"image\":null,\"status\":\"ACTIVE\",\"startAt\":null,\"endAt\":null,\"linked\":null,\"linkUrl\":null,"
+                + "\"channels\":[],\"rewards\":[{\"name\":\"Aurora Cape\",\"image\":null,\"minutes\":15,\"subs\":0}],\"watched\":true,"
+                + "\"watchable\":true,\"quest\":true,\"completed\":true}]}");
+        assertThat(state.catalogue().orElseThrow().campaigns()).singleElement()
+                .satisfies(c -> assertThat(c.quest()).isTrue())
+                .satisfies(c -> assertThat(c.completed()).isTrue());
+
         handler.handleStdout("{\"t\":\"log\",\"level\":\"INFO\",\"logger\":\"x\",\"msg\":\"Loading data for 12 streamers\"}");
         handler.handleStdout("not json at all");
         handler.handleStderr("Traceback (most recent call last):");
