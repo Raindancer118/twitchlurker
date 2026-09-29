@@ -560,3 +560,16 @@ def test_drop_plan_without_unfollowed_channels():
     assert only["skip"] == "only channels you unfollowed give these drops"
     anyone = {"skip": None, "allowed": None, "prefer": {"mrhugo"}}
     assert core.without_channels(anyone, {"mrhugo"})["allowed"] is None
+
+
+def test_drop_channel_plan_skips_a_game_the_complete_catalogue_has_nothing_for():
+    # Aurora Cape ended → Minecraft vanished from the catalogue; scouting random Minecraft streams earns nothing.
+    assert core.drop_channel_plan([], "Minecraft", complete=True)["skip"] == "no running campaign"
+    # Without a trustworthy catalogue (community list unreachable) any drop stream is still worth a try.
+    assert core.drop_channel_plan([], "Minecraft")["skip"] is None
+
+
+def test_in_progress_games():
+    inv = {"dropCampaignsInProgress": [{"game": {"displayName": "Minecraft"}}, {"game": {"name": "Rust"}}, {}]}
+    assert core.in_progress_games(inv) == {"minecraft", "rust"}
+    assert core.in_progress_games(None) == set()

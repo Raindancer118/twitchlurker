@@ -379,8 +379,11 @@ def drops_loop(miner, config):
             if scouting:
                 known = {s.username for s in miner.streamers} | blacklist | unfollowed
                 targets = core.scout_targets(watch_games, inventory, require_linked)
-                plans = {t["displayName"].lower(): core.without_channels(core.drop_channel_plan(catalogue, t["displayName"]), unfollowed)
-                         for t in targets}
+                # Campaigns Twitch already counts for us may be missing from the community list, so only trust it elsewhere.
+                running = core.in_progress_games(inventory)
+                plans = {t["displayName"].lower(): core.without_channels(core.drop_channel_plan(
+                    catalogue, t["displayName"], complete=community is not None and t["displayName"].lower() not in running), unfollowed)
+                    for t in targets}
                 games = {s.username: ((s.stream.game or {}).get("displayName") if s.is_online else None)
                          for s in miner.streamers if s.username in scouted}
                 for login in scouted & unfollowed:

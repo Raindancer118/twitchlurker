@@ -449,10 +449,13 @@ def quest_catalogue(reward_campaigns, completed, watch_games, now: float) -> lis
     return out
 
 
-def drop_channel_plan(catalogue, game_name: str) -> dict:
-    """Which directory streams count for a game: skip it, restrict to listed channels, or take any drop stream."""
+def drop_channel_plan(catalogue, game_name: str, complete: bool = False) -> dict:
+    """Which directory streams count for a game: skip it, restrict to listed channels, or take any drop stream.
+    complete: the catalogue is trustworthy, so a game missing from it has nothing to earn."""
     name = (game_name or "").lower()
     campaigns = [c for c in catalogue or [] if (c.get("game") or "").lower() == name]
+    if complete and not campaigns:
+        return {"skip": "no running campaign", "allowed": None, "prefer": set()}
     earnable = [c for c in campaigns if c.get("watchable", True) and not c.get("completed")]
     if campaigns and not earnable:
         if any(c.get("completed") for c in campaigns):
@@ -461,6 +464,11 @@ def drop_channel_plan(catalogue, game_name: str) -> dict:
     listed = {ch for c in earnable for ch in c["channels"]}
     allowed = listed if earnable and all(c["channels"] for c in earnable) else None
     return {"skip": None, "allowed": allowed, "prefer": listed}
+
+
+def in_progress_games(inventory) -> set:
+    return {((c.get("game") or {}).get("displayName") or (c.get("game") or {}).get("name") or "").lower()
+            for c in (inventory or {}).get("dropCampaignsInProgress") or [] if c.get("game")} - {""}
 
 
 def stale_scouts(games: dict, plans: dict) -> list:
