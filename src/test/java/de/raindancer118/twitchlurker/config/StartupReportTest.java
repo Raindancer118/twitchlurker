@@ -34,7 +34,7 @@ class StartupReportTest {
 
         // The heartbeat only guards the time limit; the log gets a line only when the percentage moves.
         assertThat(lines).containsExactly("Starting ... 0%", "Starting ... 25%", "Starting ... 60%",
-                "Starting ... 80%", "Twitchlurker is now UP! Starting took 60000 ms.");
+                "Starting ... 80%", "Twitchlurker is now UP! Starting took 1 min.");
     }
 
     @Test
@@ -50,7 +50,7 @@ class StartupReportTest {
         report.reached(Stage.BACKEND);
         report.minerNotStarting("connect Twitch first");
         report.heartbeat();
-        assertThat(lines).endsWith("Twitchlurker is now UP! Starting took 5000 ms. The miner is not running: connect Twitch first.");
+        assertThat(lines).endsWith("Twitchlurker is now UP! Starting took 5.0 s. The miner is not running: connect Twitch first.");
     }
 
     @Test
@@ -59,7 +59,7 @@ class StartupReportTest {
         clock.advance(Duration.ofMinutes(5).plusSeconds(1).toMillis());
         report.heartbeat();
         assertThat(report.isUp()).isTrue();
-        assertThat(lines.getLast()).isEqualTo("Twitchlurker is now UP! Starting took 301000 ms. The miner is still loading.");
+        assertThat(lines.getLast()).isEqualTo("Twitchlurker is now UP! Starting took 5 min 1 s. The miner is still loading.");
     }
 
     @Test
@@ -86,6 +86,14 @@ class StartupReportTest {
         withStatus.reached(Stage.CHANNELS);
         assertThat(seen).extracting(StartupReport.Progress::percent).containsExactly(25, 42, 59, 60);
         assertThat(log).containsExactly("Starting ... 0%", "Starting ... 25%", "Starting ... 60%");
+    }
+
+    @Test
+    void startupTimeIsGivenInTheUnitThatReadsBest() {
+        assertThat(StartupReport.humanDuration(Duration.ofMillis(850))).isEqualTo("850 ms");
+        assertThat(StartupReport.humanDuration(Duration.ofMillis(28_822))).isEqualTo("28.8 s");
+        assertThat(StartupReport.humanDuration(Duration.ofMillis(59_970))).isEqualTo("1 min");
+        assertThat(StartupReport.humanDuration(Duration.ofMillis(194_627))).isEqualTo("3 min 15 s");
     }
 
     private static final class MutableClock extends Clock {

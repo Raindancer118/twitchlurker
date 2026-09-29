@@ -4,6 +4,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.EnumSet;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Consumer;
 
@@ -92,6 +93,19 @@ public class StartupReport {
         return up ? new Progress(100, true) : new Progress(percent(), false);
     }
 
+    static String humanDuration(Duration d) {
+        long ms = d.toMillis();
+        if (ms < 1000) {
+            return ms + " ms";
+        }
+        long tenths = Math.round(ms / 100.0);
+        if (tenths < 600) {
+            return String.format(Locale.ROOT, "%.1f s", tenths / 10.0);
+        }
+        long secs = Math.round(ms / 1000.0);
+        return secs % 60 == 0 ? secs / 60 + " min" : secs / 60 + " min " + secs % 60 + " s";
+    }
+
     private int percent() {
         int part = reached.contains(Stage.CHANNELS) ? 0 : channelPart;
         return Math.min(99, reached.stream().mapToInt(s -> s.weight).sum() + part);
@@ -99,7 +113,7 @@ public class StartupReport {
 
     private void reportUp(String suffix) {
         up = true;
-        out.accept("Twitchlurker is now UP! Starting took " + Duration.between(start, clock.instant()).toMillis() + " ms." + suffix);
+        out.accept("Twitchlurker is now UP! Starting took " + humanDuration(Duration.between(start, clock.instant())) + "." + suffix);
         onChange.accept(progress());
     }
 }
