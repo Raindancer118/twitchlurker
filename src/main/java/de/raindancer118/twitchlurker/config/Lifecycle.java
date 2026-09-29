@@ -32,10 +32,12 @@ public class Lifecycle {
     private final RaffleRepository raffleRepo;
     private final Clock clock;
     private final de.raindancer118.twitchlurker.raffle.LurkAnnouncer lurk;
+    private final StartupReport startup;
 
     public Lifecycle(MinerSupervisor supervisor, TwitchAuthService auth, RaffleService raffles, EventRepository events,
                      SnapshotRepository snapshots, RaffleRepository raffleRepo, Clock clock,
-                     de.raindancer118.twitchlurker.raffle.LurkAnnouncer lurk) {
+                     de.raindancer118.twitchlurker.raffle.LurkAnnouncer lurk, StartupReport startup) {
+        this.startup = startup;
         this.lurk = lurk;
         this.supervisor = supervisor;
         this.auth = auth;
@@ -48,9 +50,20 @@ public class Lifecycle {
 
     @EventListener(ApplicationReadyEvent.class)
     void onReady() {
+        startup.reached(StartupReport.Stage.BACKEND);
         auth.revalidate();
         supervisor.restart();
+        switch (supervisor.status()) {
+            case NEEDS_LOGIN -> startup.minerNotStarting("connect Twitch first");
+            case STOPPED -> startup.minerNotStarting("it is stopped in the dashboard");
+            default -> { }
+        }
         raffles.sync();
+    }
+
+    @Scheduled(initialDelay = 10_000, fixedDelay = 10_000)
+    void reportStartup() {
+        startup.heartbeat();
     }
 
     @EventListener

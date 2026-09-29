@@ -12,6 +12,9 @@ import java.nio.file.Path;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import de.raindancer118.twitchlurker.config.StartupReport;
+import java.util.ArrayList;
+import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -26,6 +29,7 @@ class MinerMessageHandlerTest {
     EventRepository events;
     SnapshotRepository snapshots;
     MinerMessageHandler handler;
+    List<String> startup = new ArrayList<>();
 
     @BeforeEach
     void setUp() {
@@ -37,7 +41,15 @@ class MinerMessageHandlerTest {
         // Same strictness as the JsonMapper Spring Boot builds (FAIL_ON_NULL_FOR_PRIMITIVES), which the default builder lacks.
         var json = JsonMapper.builder().enable(tools.jackson.databind.DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES).build();
         handler = new MinerMessageHandler(json, state, new EventService(events, new LiveBus(), clock),
-                snapshots, new LiveBus(), clock);
+                snapshots, new LiveBus(), clock, new StartupReport(clock, clock.instant(), startup::add));
+    }
+
+    @Test
+    void firstChannelsDropsAndCatalogueCountTowardsStartup() {
+        handler.handleStdout("{\"t\":\"state\",\"user\":\"u\",\"streamers\":[]}");
+        handler.handleStdout("{\"t\":\"drops\",\"campaigns\":[],\"claimed\":[]}");
+        handler.handleStdout("{\"t\":\"campaigns\",\"campaigns\":[],\"access\":\"community\"}");
+        assertThat(startup).containsExactly("Starting ... 0%", "Starting ... 35%", "Starting ... 55%", "Starting ... 75%");
     }
 
     @Test

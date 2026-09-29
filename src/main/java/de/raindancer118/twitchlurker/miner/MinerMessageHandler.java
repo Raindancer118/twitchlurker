@@ -1,5 +1,7 @@
 package de.raindancer118.twitchlurker.miner;
 
+import de.raindancer118.twitchlurker.config.StartupReport;
+import de.raindancer118.twitchlurker.config.StartupReport.Stage;
 import de.raindancer118.twitchlurker.events.EventService;
 import de.raindancer118.twitchlurker.events.SnapshotRepository;
 import de.raindancer118.twitchlurker.live.LiveBus;
@@ -28,9 +30,16 @@ public class MinerMessageHandler {
     private final SnapshotRepository snapshots;
     private final LiveBus bus;
     private final Clock clock;
+    private final StartupReport startup;
 
     public MinerMessageHandler(JsonMapper json, MinerState state, EventService events, SnapshotRepository snapshots,
                                LiveBus bus, Clock clock) {
+        this(json, state, events, snapshots, bus, clock, new StartupReport(clock, clock.instant(), line -> { }));
+    }
+
+    public MinerMessageHandler(JsonMapper json, MinerState state, EventService events, SnapshotRepository snapshots,
+                               LiveBus bus, Clock clock, StartupReport startup) {
+        this.startup = startup;
         this.json = json;
         this.snapshotReader = json.readerFor(MinerState.Snapshot.class).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
         this.dropsReader = json.readerFor(MinerState.Drops.class).without(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES);
@@ -63,6 +72,7 @@ public class MinerMessageHandler {
                     var catalogue = new MinerState.Catalogue(parsed.campaigns(), parsed.access(), clock.instant());
                     state.update(catalogue);
                     bus.publish("campaigns", catalogue);
+                    startup.reached(Stage.CATALOGUE);
                 }
                 case "event" -> onEvent(node);
                 case "log" -> {
@@ -102,6 +112,7 @@ public class MinerMessageHandler {
             snapshots.recordIfChanged(s.login(), now, s.points());
         }
         bus.publish("state", snap);
+        startup.reached(Stage.CHANNELS);
     }
 
     private void onDrops(JsonNode node) {
@@ -109,6 +120,7 @@ public class MinerMessageHandler {
         var drops = new MinerState.Drops(parsed.campaigns(), parsed.claimed(), clock.instant());
         state.update(drops);
         bus.publish("drops", drops);
+        startup.reached(Stage.DROPS);
     }
 
     private void onEvent(JsonNode node) {

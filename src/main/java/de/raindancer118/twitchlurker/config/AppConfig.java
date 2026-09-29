@@ -16,14 +16,17 @@ import de.raindancer118.twitchlurker.twitch.RewardCodeService;
 import de.raindancer118.twitchlurker.twitch.TwitchAuthService;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.lang.management.ManagementFactory;
 import java.net.http.HttpClient;
 import java.nio.file.Files;
 import java.security.SecureRandom;
 import java.time.Clock;
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -106,9 +109,16 @@ public class AppConfig {
     }
 
     @Bean
+    StartupReport startupReport(Clock clock) {
+        var log = LoggerFactory.getLogger(StartupReport.class);
+        var jvmStart = Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime());
+        return new StartupReport(clock, jvmStart, log::info);
+    }
+
+    @Bean
     MinerMessageHandler minerMessageHandler(JsonMapper json, MinerState state, EventService events, SnapshotRepository snapshots,
-                                            LiveBus bus, Clock clock) {
-        return new MinerMessageHandler(json, state, events, snapshots, bus, clock);
+                                            LiveBus bus, Clock clock, StartupReport startup) {
+        return new MinerMessageHandler(json, state, events, snapshots, bus, clock, startup);
     }
 
     @Bean(destroyMethod = "shutdown")
