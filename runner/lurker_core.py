@@ -1,4 +1,5 @@
 """Pure helpers for the runner: no network, no miner threads."""
+import json
 import os
 import pickle
 import re
@@ -343,6 +344,38 @@ def follow_changes(followers, current, extra, scouted, blacklist):
     added = [f for f in followers if f not in current_set and f not in blacklist]
     removed = [c for c in current if c not in follow_set and c not in extra and c not in scouted]
     return added, removed
+
+
+def track_unfollows(unfollowed: set, removed, followers) -> bool:
+    """Remember channels the user unfollowed so the drop hunt stays away; following again lifts it. True if changed."""
+    before = set(unfollowed)
+    unfollowed.update(r.lower() for r in removed or [])
+    if followers:
+        unfollowed.difference_update(f.lower() for f in followers)
+    return unfollowed != before
+
+
+def load_unfollowed(path) -> set:
+    try:
+        return {str(x).lower() for x in json.loads(Path(path).read_text(encoding="utf-8"))}
+    except (OSError, ValueError, TypeError):
+        return set()
+
+
+def save_unfollowed(path, unfollowed: set) -> None:
+    Path(path).write_text(json.dumps(sorted(unfollowed)), encoding="utf-8")
+
+
+def without_channels(plan: dict, banned: set) -> dict:
+    if plan["skip"] or not banned:
+        return plan
+    prefer = plan["prefer"] - banned
+    if plan["allowed"] is None:
+        return {**plan, "prefer": prefer}
+    allowed = plan["allowed"] - banned
+    if not allowed:
+        return {"skip": "only channels you unfollowed give these drops", "allowed": None, "prefer": set()}
+    return {"skip": None, "allowed": allowed, "prefer": prefer}
 
 
 def linked_from_inventory(inventory) -> dict:

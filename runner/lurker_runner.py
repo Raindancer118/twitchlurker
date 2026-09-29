@@ -63,6 +63,9 @@ last_watched = {}
 order = []
 scouted = set()
 extra_logins = set()
+# Channels the user unfollowed: the drop hunt must not bring them back (kept in workDir across restarts).
+unfollowed = set()
+UNFOLLOWED_FILE = "unfollowed.json"
 
 
 class JsonLogHandler(logging.Handler):
@@ -174,7 +177,7 @@ def add_streamer(miner, login, source):
     return True
 
 
-def drop_scout(miner, login):
+def drop_scout(miner, login, reason="no longer earns drops"):
     """Stop lurking a scouted channel that no longer earns drops (follows and manual channels are never touched)."""
     if login not in scouted:
         return
@@ -183,7 +186,7 @@ def drop_scout(miner, login):
         if s.username == login:
             miner.streamers.remove(s)
     emit({"t": "event", "event": "STREAMER_REMOVED", "login": login})
-    emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Drop hunt: {login} no longer earns drops, stopped lurking"})
+    emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Drop hunt: {login} {reason}, stopped lurking"})
 
 
 stream_start_cache = {}
@@ -374,11 +377,14 @@ def drops_loop(miner, config):
                   "msg": f"Drop catalogue: {len(catalogue)} campaigns ({access}), watching: {', '.join(watch_games) or '–'}"})
 
             if scouting:
-                known = {s.username for s in miner.streamers} | blacklist
+                known = {s.username for s in miner.streamers} | blacklist | unfollowed
                 targets = core.scout_targets(watch_games, inventory, require_linked)
-                plans = {t["displayName"].lower(): core.drop_channel_plan(catalogue, t["displayName"]) for t in targets}
+                plans = {t["displayName"].lower(): core.without_channels(core.drop_channel_plan(catalogue, t["displayName"]), unfollowed)
+                         for t in targets}
                 games = {s.username: ((s.stream.game or {}).get("displayName") if s.is_online else None)
                          for s in miner.streamers if s.username in scouted}
+                for login in scouted & unfollowed:
+                    drop_scout(miner, login, "was unfollowed")
                 for login in core.stale_scouts(games, plans):
                     drop_scout(miner, login)
                 for target in targets:
@@ -425,6 +431,10 @@ def sync_follows(miner, config):
         blacklist = {b.lower() for b in config.get("blacklist", [])}
         current = [s.username for s in miner.streamers]
         added, removed = core.follow_changes(followers, current, extra_logins, scouted, blacklist)
+        if core.track_unfollows(unfollowed, removed, followers):
+            core.save_unfollowed(UNFOLLOWED_FILE, unfollowed)
+        for login in scouted & unfollowed:
+            drop_scout(miner, login, "was unfollowed")
         for login in removed:
             for s in list(miner.streamers):
                 if s.username == login:
@@ -455,6 +465,9 @@ def command_loop(miner, config):
         if cmd.get("cmd") == "add" and cmd.get("login"):
             wait_until_running(miner)
             extra_logins.add(cmd["login"].lower())
+            if cmd["login"].lower() in unfollowed:
+                unfollowed.discard(cmd["login"].lower())
+                core.save_unfollowed(UNFOLLOWED_FILE, unfollowed)
             add_streamer(miner, cmd["login"], "extra")
         elif cmd.get("cmd") == "refresh-follows":
             wait_until_running(miner)
@@ -491,6 +504,7 @@ def main():
     config = json.load(open(sys.argv[1], encoding="utf-8"))
     os.makedirs(config["workDir"], exist_ok=True)
     os.chdir(config["workDir"])
+    unfollowed.update(core.load_unfollowed(UNFOLLOWED_FILE))
     token = json.load(open(config["tokenFile"], encoding="utf-8"))
     config["login"] = token["login"]
     core.write_cookies(os.path.join("cookies", f"{token['login']}.pkl"), token["accessToken"], token["userId"])

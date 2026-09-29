@@ -532,3 +532,31 @@ def test_claims_due_retries_rarely():
     # Twitch sometimes answers "ok" without claiming; don't hammer it every cycle.
     assert core.claims_due(inst, {"926#a#g1": 900.0}, 1000.0) == [("926#b#g2", "Hat")]
     assert core.claims_due(inst, {"926#a#g1": 900.0}, 900.0 + core.CLAIM_RETRY_SECONDS) == inst
+
+
+def test_unfollowed_channels_are_remembered_until_followed_again():
+    unfollowed = {"old"}
+    assert core.track_unfollows(unfollowed, removed=["mrhugo"], followers=["a", "Old"])
+    assert unfollowed == {"mrhugo"}
+    assert not core.track_unfollows(unfollowed, removed=[], followers=["a"])
+    # An empty follow list is a Twitch hiccup, not "followed nobody" — keep the memory.
+    assert not core.track_unfollows(unfollowed, removed=[], followers=[])
+    assert unfollowed == {"mrhugo"}
+
+
+def test_unfollowed_channels_survive_a_restart(tmp_path):
+    path = tmp_path / "unfollowed.json"
+    assert core.load_unfollowed(path) == set()
+    core.save_unfollowed(path, {"mrhugo", "b"})
+    assert core.load_unfollowed(path) == {"mrhugo", "b"}
+    path.write_text("not json")
+    assert core.load_unfollowed(path) == set()
+
+
+def test_drop_plan_without_unfollowed_channels():
+    plan = {"skip": None, "allowed": {"mrhugo", "other"}, "prefer": {"mrhugo", "other"}}
+    assert core.without_channels(plan, {"mrhugo"}) == {"skip": None, "allowed": {"other"}, "prefer": {"other"}}
+    only = core.without_channels({"skip": None, "allowed": {"mrhugo"}, "prefer": {"mrhugo"}}, {"mrhugo"})
+    assert only["skip"] == "only channels you unfollowed give these drops"
+    anyone = {"skip": None, "allowed": None, "prefer": {"mrhugo"}}
+    assert core.without_channels(anyone, {"mrhugo"})["allowed"] is None
