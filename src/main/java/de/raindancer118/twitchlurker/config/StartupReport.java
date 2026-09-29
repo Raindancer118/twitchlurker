@@ -20,18 +20,28 @@ public class StartupReport {
         }
     }
 
+    /** percent is 100 once up. */
+    public record Progress(int percent, boolean up) {}
+
     private static final Duration MAX_WAIT = Duration.ofMinutes(5);
 
     private final Clock clock;
     private final Instant start;
     private final Consumer<String> out;
+    private final Consumer<Progress> onChange;
     private final Set<Stage> reached = EnumSet.noneOf(Stage.class);
     private boolean up;
+    private int channelPart;
 
     public StartupReport(Clock clock, Instant start, Consumer<String> out) {
+        this(clock, start, out, progress -> { });
+    }
+
+    public StartupReport(Clock clock, Instant start, Consumer<String> out, Consumer<Progress> onChange) {
         this.clock = clock;
         this.start = start;
         this.out = out;
+        this.onChange = onChange;
         out.accept("Starting ... 0%");
     }
 
@@ -43,6 +53,19 @@ public class StartupReport {
             reportUp("");
         } else {
             out.accept("Starting ... " + percent() + "%");
+            onChange.accept(progress());
+        }
+    }
+
+    /** Progress within the channel stage; moves the status on top of the page, the log only gets whole stages. */
+    public synchronized void channelsLoading(int done, int total) {
+        if (up || total <= 0 || reached.contains(Stage.CHANNELS)) {
+            return;
+        }
+        int before = percent();
+        channelPart = Stage.CHANNELS.weight * Math.clamp(done, 0, total) / total;
+        if (percent() != before) {
+            onChange.accept(progress());
         }
     }
 
@@ -52,8 +75,6 @@ public class StartupReport {
         }
         if (Duration.between(start, clock.instant()).compareTo(MAX_WAIT) > 0) {
             reportUp(" The miner is still loading.");
-        } else {
-            out.accept("Starting ... " + percent() + "%");
         }
     }
 
@@ -67,12 +88,18 @@ public class StartupReport {
         return up;
     }
 
+    public synchronized Progress progress() {
+        return up ? new Progress(100, true) : new Progress(percent(), false);
+    }
+
     private int percent() {
-        return Math.min(99, reached.stream().mapToInt(s -> s.weight).sum());
+        int part = reached.contains(Stage.CHANNELS) ? 0 : channelPart;
+        return Math.min(99, reached.stream().mapToInt(s -> s.weight).sum() + part);
     }
 
     private void reportUp(String suffix) {
         up = true;
         out.accept("Twitchlurker is now UP! Starting took " + Duration.between(start, clock.instant()).toMillis() + " ms." + suffix);
+        onChange.accept(progress());
     }
 }

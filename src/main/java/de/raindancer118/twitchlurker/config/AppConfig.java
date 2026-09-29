@@ -26,7 +26,6 @@ import java.time.Instant;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -109,10 +108,14 @@ public class AppConfig {
     }
 
     @Bean
-    StartupReport startupReport(Clock clock) {
-        var log = LoggerFactory.getLogger(StartupReport.class);
+    BackendLog backendLog(MinerState state, LiveBus bus, Clock clock) {
+        return new BackendLog(state, bus, clock);
+    }
+
+    @Bean
+    StartupReport startupReport(Clock clock, BackendLog log, LiveBus bus) {
         var jvmStart = Instant.ofEpochMilli(ManagementFactory.getRuntimeMXBean().getStartTime());
-        return new StartupReport(clock, jvmStart, log::info);
+        return new StartupReport(clock, jvmStart, log::info, progress -> bus.publish("startup", progress));
     }
 
     @Bean

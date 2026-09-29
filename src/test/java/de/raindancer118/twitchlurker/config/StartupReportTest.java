@@ -32,7 +32,8 @@ class StartupReportTest {
         report.heartbeat();
         report.reached(Stage.CATALOGUE);
 
-        assertThat(lines).containsExactly("Starting ... 0%", "Starting ... 25%", "Starting ... 25%", "Starting ... 60%",
+        // The heartbeat only guards the time limit; the log gets a line only when the percentage moves.
+        assertThat(lines).containsExactly("Starting ... 0%", "Starting ... 25%", "Starting ... 60%",
                 "Starting ... 80%", "Twitchlurker is now UP! Starting took 60000 ms.");
     }
 
@@ -59,6 +60,32 @@ class StartupReportTest {
         report.heartbeat();
         assertThat(report.isUp()).isTrue();
         assertThat(lines.getLast()).isEqualTo("Twitchlurker is now UP! Starting took 301000 ms. The miner is still loading.");
+    }
+
+    @Test
+    void publishesProgressForTheStatusOnTopOfThePage() {
+        List<StartupReport.Progress> seen = new ArrayList<>();
+        var withStatus = new StartupReport(clock, JVM_START, lines::add, seen::add);
+        assertThat(withStatus.progress()).isEqualTo(new StartupReport.Progress(0, false));
+        withStatus.reached(Stage.BACKEND);
+        withStatus.minerNotStarting("connect Twitch first");
+        assertThat(seen).containsExactly(new StartupReport.Progress(25, false), new StartupReport.Progress(100, true));
+        assertThat(withStatus.progress()).isEqualTo(new StartupReport.Progress(100, true));
+    }
+
+    @Test
+    void channelLoadingMovesTheStatusButNotTheLog() {
+        List<StartupReport.Progress> seen = new ArrayList<>();
+        List<String> log = new ArrayList<>();
+        var withStatus = new StartupReport(clock, JVM_START, log::add, seen::add);
+        withStatus.reached(Stage.BACKEND);
+        withStatus.channelsLoading(1, 200);
+        withStatus.channelsLoading(2, 200);
+        withStatus.channelsLoading(100, 200);
+        withStatus.channelsLoading(199, 200);
+        withStatus.reached(Stage.CHANNELS);
+        assertThat(seen).extracting(StartupReport.Progress::percent).containsExactly(25, 42, 59, 60);
+        assertThat(log).containsExactly("Starting ... 0%", "Starting ... 25%", "Starting ... 60%");
     }
 
     private static final class MutableClock extends Clock {

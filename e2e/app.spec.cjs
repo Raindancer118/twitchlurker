@@ -71,6 +71,7 @@ for (const scheme of ['dark', 'light']) {
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-raffles.png`, fullPage: true });
 
       await go(page, 'bot');
+      await expect(page.locator('#bot-log')).toContainText('Twitchlurker is now UP!');
       await expect(page.locator('#bot-state')).toHaveText('Running');
       await expect(page.locator('#device-login')).toContainText('tomlurkt');
       await page.screenshot({ path: `shots/${viewport.name}-${scheme}-bot.png`, fullPage: true });

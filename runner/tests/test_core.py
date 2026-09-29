@@ -587,3 +587,18 @@ def test_expired_quests_are_no_longer_claimable():
 
 def _epoch_of(iso):
     return core._epoch(iso)
+
+
+def test_startup_total_counts_each_channel_once_like_the_miner():
+    # The miner loads config channels plus follows, minus the blacklist, and does two passes (id, then points).
+    assert core.startup_total(["Papaplatte", "gronkh"], ["gronkh", "zarbex", "blocked"], {"blocked"}) == 6
+    assert core.startup_total([], None, set()) == 0
+
+
+def test_loading_progress_counts_up_and_stops_at_the_total():
+    loading = core.Loading()
+    assert loading.step() is None  # total not known yet
+    loading.start(2)
+    assert loading.step() == {"t": "loading", "done": 1, "total": 2}
+    assert loading.step() == {"t": "loading", "done": 2, "total": 2}
+    assert loading.step() is None  # later add_streamer calls are not part of the startup

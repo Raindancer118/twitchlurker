@@ -1,6 +1,7 @@
 package de.raindancer118.twitchlurker.web;
 
 import de.raindancer118.twitchlurker.config.LurkerProperties;
+import de.raindancer118.twitchlurker.config.StartupReport;
 import de.raindancer118.twitchlurker.events.EventRepository;
 import de.raindancer118.twitchlurker.events.LurkerEvent;
 import de.raindancer118.twitchlurker.events.SnapshotRepository;
@@ -28,7 +29,8 @@ import org.springframework.stereotype.Service;
 @Service
 public class DashboardService {
 
-    public record Bot(MinerSupervisor.Status status, Instant startedAt, int restarts, String user) {}
+    /** startup: percent while the backend is still loading, null once it is up. */
+    public record Bot(MinerSupervisor.Status status, Instant startedAt, int restarts, String user, Integer startup) {}
 
     public record Stats(long pointsToday, long pointsWeek, long pointsTotal, long bonusesToday, long rafflesToday,
                         long rafflesWon, long dropsToday, long dropsTotal) {}
@@ -62,10 +64,12 @@ public class DashboardService {
     private final SettingsStore settings;
     private final LurkerProperties props;
     private final Clock clock;
+    private final StartupReport startup;
 
     public DashboardService(MinerState state, MinerSupervisor supervisor, TwitchAuthService auth, RaffleService raffleService,
                             EventRepository events, SnapshotRepository snapshots, RaffleRepository raffles, SettingsStore settings,
-                            LurkerProperties props, Clock clock) {
+                            LurkerProperties props, Clock clock, StartupReport startup) {
+        this.startup = startup;
         this.state = state;
         this.supervisor = supervisor;
         this.auth = auth;
@@ -89,7 +93,8 @@ public class DashboardService {
 
     public Bot bot() {
         return new Bot(supervisor.status(), supervisor.startedAt().orElse(null), supervisor.restarts(),
-                state.snapshot().map(MinerState.Snapshot::user).orElse(auth.status().login()));
+                state.snapshot().map(MinerState.Snapshot::user).orElse(auth.status().login()),
+                startup.isUp() ? null : startup.progress().percent());
     }
 
     public Overview overview() {

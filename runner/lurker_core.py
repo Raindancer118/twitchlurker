@@ -508,3 +508,26 @@ def scout_targets(watch_games, inventory, require_linked: bool) -> list:
             seen.add(name.lower())
             targets.append({**game, "displayName": name, "watched": False})
     return targets
+
+
+def startup_total(streamers, followers, blacklist) -> int:
+    """Steps the miner takes while loading channels at startup: one id lookup and one points load per channel."""
+    names = dict.fromkeys(s.lower().strip() for s in list(streamers or []) + list(followers or []))
+    return 2 * len([n for n in names if n and n not in blacklist])
+
+
+class Loading:
+    """Startup loading progress; only counts until the total is reached, later channel adds are ignored."""
+
+    def __init__(self):
+        self.total, self.done = None, 0
+
+    def start(self, total: int) -> None:
+        if self.total is None:
+            self.total = total
+
+    def step(self):
+        if self.total is None or self.done >= self.total:
+            return None
+        self.done += 1
+        return {"t": "loading", "done": self.done, "total": self.total}

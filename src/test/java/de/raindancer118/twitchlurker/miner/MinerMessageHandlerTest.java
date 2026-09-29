@@ -46,10 +46,12 @@ class MinerMessageHandlerTest {
 
     @Test
     void firstChannelsDropsAndCatalogueCountTowardsStartup() {
+        handler.handleStdout("{\"t\":\"loading\",\"done\":5,\"total\":10}");
         handler.handleStdout("{\"t\":\"state\",\"user\":\"u\",\"streamers\":[]}");
         handler.handleStdout("{\"t\":\"drops\",\"campaigns\":[],\"claimed\":[]}");
         handler.handleStdout("{\"t\":\"campaigns\",\"campaigns\":[],\"access\":\"community\"}");
         assertThat(startup).containsExactly("Starting ... 0%", "Starting ... 35%", "Starting ... 55%", "Starting ... 75%");
+        assertThat(state.logs(10)).noneMatch(l -> l.msg().contains("loading"));
     }
 
     @Test

@@ -66,6 +66,8 @@ extra_logins = set()
 # Channels the user unfollowed: the drop hunt must not bring them back (kept in workDir across restarts).
 unfollowed = set()
 UNFOLLOWED_FILE = "unfollowed.json"
+loading = core.Loading()
+startup_channels = {"streamers": [], "blacklist": set()}
 
 
 class JsonLogHandler(logging.Handler):
@@ -84,6 +86,28 @@ class JsonLogHandler(logging.Handler):
 
 def install_hooks():
     lurker_watch.install()
+    # Startup progress for the backend: the miner loads every channel twice (id lookup, then points).
+    orig_followers = Twitch.get_followers
+
+    def get_followers(self, *args, **kwargs):
+        followers = orig_followers(self, *args, **kwargs)
+        loading.start(core.startup_total(startup_channels["streamers"], followers, startup_channels["blacklist"]))
+        return followers
+
+    Twitch.get_followers = get_followers
+
+    def counted(orig):
+        def step(self, *args, **kwargs):
+            try:
+                return orig(self, *args, **kwargs)
+            finally:
+                progress = loading.step()
+                if progress:
+                    emit(progress)
+        return step
+
+    Twitch.get_channel_id = counted(Twitch.get_channel_id)
+    Twitch.load_channel_points_context = counted(Twitch.load_channel_points_context)
     orig_minute = Stream.update_minute_watched
 
     def update_minute_watched(self):
@@ -356,7 +380,7 @@ def drops_loop(miner, config):
         query["extensions"]["persistedQuery"]["sha256Hash"] = config["gameDirectoryHash"]
     community, fetched_at = None, 0.0
     wait_until_running(miner)
-    drops_wake.wait(45)
+    drops_wake.wait(10)
     while miner.running:
         drops_wake.clear()
         try:
@@ -512,6 +536,10 @@ def main():
     config["login"] = token["login"]
     core.write_cookies(os.path.join("cookies", f"{token['login']}.pkl"), token["accessToken"], token["userId"])
     extra_logins.update(s.lower() for s in config.get("streamers", []))
+    startup_channels["streamers"] = config.get("streamers", [])
+    startup_channels["blacklist"] = {b.lower() for b in config.get("blacklist", [])}
+    if not config.get("followers", True):
+        loading.start(core.startup_total(startup_channels["streamers"], [], startup_channels["blacklist"]))
     lurker_watch.control["pinned"] = core.normalize_slots(config.get("slots"))
     lurker_watch.control["scouted"] = scouted
     watch_games[:] = [str(g) for g in (config.get("dropScout") or {}).get("games", [])]

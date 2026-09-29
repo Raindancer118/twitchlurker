@@ -181,12 +181,19 @@ function since(iso) {
   return `For ${Math.floor(h / 24)} days, ${h % 24} h`;
 }
 
+const startingText = bot => bot?.startup != null ? `Starting … ${bot.startup}%` : null;
+
 function renderBotMini(bot) {
   if (!bot) return;
   const [short] = BOT_TEXT[bot.status] || ['…'];
-  $('#sidebar-state').textContent = short;
-  $('#sidebar-uptime').textContent = bot.status === 'RUNNING' ? since(bot.startedAt) : '';
+  $('#sidebar-state').textContent = startingText(bot) || short;
+  $('#sidebar-uptime').textContent = bot.status === 'RUNNING' && !startingText(bot) ? since(bot.startedAt) : '';
   document.body.classList.toggle('paused', bot.status !== 'RUNNING');
+}
+
+function renderSessionState(bot) {
+  if (!bot) return;
+  $('#session-state').textContent = startingText(bot) || `${BOT_TEXT[bot.status]?.[0] || ''}${bot.user ? ' as ' + bot.user : ''}`;
 }
 
 function renderBanner(twitch) {
@@ -387,7 +394,7 @@ function renderOverview() {
   $('#overview-sub').textContent = o.bot.status === 'RUNNING'
     ? `${o.online} of ${o.tracked} channels are live. The bot lurks in two of them.`
     : 'The bot is taking a break. Head to “Bot & Login” to continue.';
-  $('#session-state').textContent = `${BOT_TEXT[o.bot.status]?.[0] || ''}${o.bot.user ? ' as ' + o.bot.user : ''}`;
+  renderSessionState(o.bot);
 
   setPhase();
   animateNumber($('#stat-today'), o.stats.pointsToday, { bump: true });
@@ -839,7 +846,7 @@ function renderLogin() {
   box.innerHTML = `${t.error ? `<p class="scope-warning">${esc(t.error)}</p>` : ''}<button class="primary" data-twitch="login">Connect Twitch</button>`;
 }
 
-const IMPORTANT = /(\+\d+|claim|raid|drop|join|login|start|load|error|fehl|streak|online|offline|moment|bonus)/i;
+const IMPORTANT = /(\+\d+|claim|raid|drop|join|login|start|load|error|fehl|streak|online|offline|moment|bonus|shutting down|is now up)/i;
 
 function logItem(l) {
   const li = document.createElement('li');
@@ -1016,6 +1023,12 @@ function connectLive() {
     if (currentScreen() === 'bot' && (!$('#log-filter').checked || l.level !== 'INFO' || IMPORTANT.test(l.msg))) {
       $('#bot-log').prepend(logItem(l));
     }
+  });
+  es.addEventListener('startup', ev => {
+    const p = JSON.parse(ev.data);
+    for (const bot of [state.bot, state.overview?.bot]) if (bot) bot.startup = p.up ? null : p.percent;
+    renderBotMini(state.bot || state.overview?.bot);
+    renderSessionState(state.overview?.bot);
   });
   es.addEventListener('bot', ev => {
     state.bot = JSON.parse(ev.data);

@@ -1,5 +1,5 @@
 """Stands in for lurker_runner.py in end-to-end tests: speaks the same JSON-lines protocol."""
-import json, sys, threading, time
+import json, os, sys, threading, time
 
 config = json.load(open(sys.argv[1]))
 token = json.load(open(config["tokenFile"]))
@@ -90,7 +90,10 @@ out({"t": "drops", "campaigns": [{"id": "c1", "name": "Rust Twitch Drops #40", "
                  {"id": "pichu", "name": "Pichu", "image": None, "at": None, "game": None, "campaignId": "poke", "redeemUrl": None},
                  {"id": "b2", "name": "Garage Door Skin", "image": None, "at": "2026-09-27T14:02:00Z", "game": "Rust",
                   "campaignId": None, "redeemUrl": None}]})
-out({"t": "campaigns", "campaigns": catalogue()})
+for i in range(1, 9):
+    out({"t": "loading", "done": i, "total": 8})
+# FAKE_CATALOGUE_DELAY holds back the last startup stage so the "Starting … %" status can be looked at.
+threading.Timer(float(os.environ.get("FAKE_CATALOGUE_DELAY", "0")), lambda: out({"t": "campaigns", "campaigns": catalogue()})).start()
 threading.Thread(target=state_loop, daemon=True).start()
 for line in sys.stdin:
     cmd = json.loads(line)

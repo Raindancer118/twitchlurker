@@ -85,6 +85,7 @@ public class MinerMessageHandler {
                     }
                 }
                 case "status" -> bus.publish("status", node);
+                case "loading" -> startup.channelsLoading(node.path("done").asInt(), node.path("total").asInt());
                 default -> raw("RAW", line);
             }
         } catch (RuntimeException e) {
