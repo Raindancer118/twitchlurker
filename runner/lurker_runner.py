@@ -251,6 +251,9 @@ def claim_reward_drop(twitch, instance_id):
     return not response.get("errors") and ((response.get("data") or {}).get("claimDropRewards") is not None)
 
 
+claim_attempts = {}
+
+
 def inventory_loop(miner):
     wait_until_running(miner)
     quests = None
@@ -263,14 +266,21 @@ def inventory_loop(miner):
             try:
                 user_id, in_progress, details = fetch_quest_progress(twitch)
                 # TCPM only claims classic drops; earned quest tiers would otherwise expire unclaimed.
-                for instance_id, name in core.claimable_instances(in_progress, details, user_id):
-                    if claim_reward_drop(twitch, instance_id):
-                        claimed_now.add(instance_id.split("#")[1])
-                        emit({"t": "event", "event": "DROP", "name": name})
-                    else:
-                        emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not claim {name}"})
-                if claimed_now:
+                tried = core.claims_due(core.claimable_instances(in_progress, details, user_id), claim_attempts, time.time())
+                for instance_id, _ in tried:
+                    claim_attempts[instance_id] = time.time()
+                    claim_reward_drop(twitch, instance_id)
+                if tried:
+                    # Twitch can answer a claim with success and still leave it unclaimed, so trust only a re-read.
                     user_id, in_progress, details = fetch_quest_progress(twitch)
+                    still = {i for i, _ in core.claimable_instances(in_progress, details, user_id)}
+                    for instance_id, name in tried:
+                        if instance_id in still:
+                            emit({"t": "log", "level": "INFO", "logger": "runner",
+                                  "msg": f"Twitch did not accept the claim for {name}; claim it at twitch.tv/drops/inventory"})
+                        else:
+                            claimed_now.add(instance_id.split("#")[1])
+                            emit({"t": "event", "event": "DROP", "name": name})
                 completed = (inventory or {}).get("completedRewardCampaigns") or []
                 snap["campaigns"] += core.quest_progress(in_progress, details, completed, time.time())
             except Exception as e:

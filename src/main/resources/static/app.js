@@ -630,8 +630,9 @@ function renderDrops() {
     const drops = c.drops.map(dr => {
       const pct = dr.required ? Math.min(100, Math.round(dr.watched / dr.required * 100)) : 0;
       const done = dr.claimed || dr.claimable;
-      const label = dr.claimed ? '<span class="claimed">Claimed</span>' : dr.claimable ? '<span class="claimed">Earned, claiming…</span>' : pct + '%';
-      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${label}</strong></div><progress value="${done ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small>${dr.claimed ? codeButton(c.id, dr.rewardId, dr.redeemUrl, dr.name) : ''}</li>`;
+      const label = dr.claimed ? '<span class="claimed">Claimed</span>' : dr.claimable ? '<span class="claimed">Ready to claim</span>' : pct + '%';
+      const claimLink = dr.claimable ? '<a class="text-link" href="https://www.twitch.tv/drops/inventory" target="_blank" rel="noopener noreferrer">Claim on Twitch <svg><use href="#i-arrow"/></svg></a>' : '';
+      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${label}</strong></div><progress value="${done ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small>${claimLink}${dr.claimed ? codeButton(c.id, dr.rewardId, dr.redeemUrl, dr.name) : ''}</li>`;
     }).join('');
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
     const linkState = c.quest ? '<span class="positive">Twitch quest · no link needed</span>'

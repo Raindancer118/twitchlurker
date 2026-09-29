@@ -221,6 +221,13 @@ def claimable_instances(in_progress, details, user_id) -> list:
     return out
 
 
+CLAIM_RETRY_SECONDS = 6 * 3600
+
+
+def claims_due(instances, attempts: dict, now: float) -> list:
+    return [(i, name) for i, name in instances if now - attempts.get(i, float("-inf")) >= CLAIM_RETRY_SECONDS]
+
+
 def completed_quest_ids(inventory) -> set:
     return {q["id"] for q in (inventory or {}).get("completedRewardCampaigns") or [] if q.get("id")}
 

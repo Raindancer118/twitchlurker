@@ -186,6 +186,9 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   // Quests show Twitch's own progress, and earned code rewards open their code.
   await page.click('[data-drop-tab="campaigns"]');
   await expect(page.locator('#campaigns .campaign', { hasText: 's0phtember' })).toContainText(/137 \/ 1[.,]?440 minutes/);
+  const creeper = page.locator('#campaigns .campaign', { hasText: 'Corrupted Creeper Cape' });
+  await expect(creeper).toContainText('Ready to claim');
+  await expect(creeper.getByRole('link', { name: 'Claim on Twitch' })).toHaveAttribute('href', 'https://www.twitch.tv/drops/inventory');
   const auroraProgress = page.locator('#campaigns .campaign', { hasText: 'Aurora Cape' });
   await expect(auroraProgress).toContainText('Twitch quest');
   await auroraProgress.getByRole('button', { name: 'Show code' }).click();

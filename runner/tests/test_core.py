@@ -529,3 +529,11 @@ def test_logins_missing_stream_start():
     assert core.logins_missing_start([a, b, c], {"318232697560": "x"}) == ["b"]
     b.stream.broadcast_id = None
     assert core.logins_missing_start([a, b, c], {"318232697560": "x"}) == []
+
+
+def test_claims_due_retries_rarely():
+    inst = [("926#a#g1", "Cape"), ("926#b#g2", "Hat")]
+    assert core.claims_due(inst, {}, 1000.0) == inst
+    # Twitch sometimes answers "ok" without claiming; don't hammer it every cycle.
+    assert core.claims_due(inst, {"926#a#g1": 900.0}, 1000.0) == [("926#b#g2", "Hat")]
+    assert core.claims_due(inst, {"926#a#g1": 900.0}, 900.0 + core.CLAIM_RETRY_SECONDS) == inst
