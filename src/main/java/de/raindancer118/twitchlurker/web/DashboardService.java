@@ -147,7 +147,7 @@ public class DashboardService {
         state.snapshot().ifPresent(snap -> snap.streamers().forEach(st -> byLogin.put(st.login(), st)));
         // Bot stopped: still show channels we have history for.
         history.forEach((login, points) -> byLogin.computeIfAbsent(login, l -> new MinerState.Streamer(l, null, false, false,
-                points.getLast().points(), null, null, 0, null, 0, false, false, false, "follow")));
+                points.getLast().points(), null, null, 0, null, 0, false, false, false, "follow", null, null)));
 
         // The saved order is authoritative (the runner may lag a cycle behind); unranked channels keep the runner's order.
         var ordered = new ArrayList<>(byLogin.values());

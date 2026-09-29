@@ -80,6 +80,16 @@ class MinerMessageHandlerTest {
         handler.handleStdout("{\"t\":\"drops\",\"campaigns\":[{\"id\":\"c\",\"name\":\"Rust\",\"game\":\"Rust\",\"image\":null,\"endsAt\":\"2026-10-01T00:00:00Z\",\"linked\":true,"
                 + "\"drops\":[{\"id\":\"d\",\"name\":\"Suit\",\"image\":null,\"required\":120,\"watched\":60,\"claimed\":false}]}],\"claimed\":[]}");
         assertThat(state.drops().orElseThrow().campaigns().getFirst().drops().getFirst().watched()).isEqualTo(60);
+        handler.handleStdout("{\"t\":\"drops\",\"campaigns\":[{\"id\":\"aurora\",\"name\":\"Aurora Cape\",\"game\":\"Minecraft\",\"image\":null,"
+                + "\"endsAt\":null,\"linked\":true,\"quest\":true,\"drops\":[{\"id\":\"g\",\"name\":\"Aurora Cape\",\"image\":null,\"required\":15,"
+                + "\"watched\":15,\"claimed\":true,\"claimable\":false,\"rewardId\":\"r-aurora\",\"redeemUrl\":\"https://www.minecraft.net/redeem\"}]}],"
+                + "\"claimed\":[{\"id\":\"r-aurora\",\"name\":\"Aurora Cape\",\"image\":null,\"at\":null,\"game\":\"Minecraft\","
+                + "\"campaignId\":\"aurora\",\"redeemUrl\":\"https://www.minecraft.net/redeem\"}]}");
+        var quest = state.drops().orElseThrow();
+        assertThat(quest.campaigns().getFirst().quest()).isTrue();
+        assertThat(quest.campaigns().getFirst().drops().getFirst().rewardId()).isEqualTo("r-aurora");
+        assertThat(quest.claimed().getFirst().campaignId()).isEqualTo("aurora");
+        assertThat(quest.claimed().getFirst().redeemUrl()).isEqualTo("https://www.minecraft.net/redeem");
 
         handler.handleStdout("{\"t\":\"campaigns\",\"campaigns\":[{\"id\":\"mc1\",\"name\":\"Minecraft Live\",\"game\":\"Minecraft\",\"gameId\":\"27471\","
                 + "\"image\":null,\"status\":\"ACTIVE\",\"startAt\":\"2026-09-27T00:00:00Z\",\"endAt\":\"2026-10-05T00:00:00Z\",\"linked\":false,"

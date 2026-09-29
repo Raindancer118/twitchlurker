@@ -12,6 +12,7 @@ import de.raindancer118.twitchlurker.raffle.RaffleService;
 import de.raindancer118.twitchlurker.raffle.TwitchChatClient;
 import de.raindancer118.twitchlurker.settings.SettingsStore;
 import de.raindancer118.twitchlurker.twitch.TokenStore;
+import de.raindancer118.twitchlurker.twitch.RewardCodeService;
 import de.raindancer118.twitchlurker.twitch.TwitchAuthService;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -72,6 +73,11 @@ public class AppConfig {
     TwitchAuthService twitchAuthService(RestClient.Builder builder, LurkerProperties props, TokenStore store,
                                         ApplicationEventPublisher events) {
         return new TwitchAuthService(builder.clone(), props.twitchIdBase(), store, events);
+    }
+
+    @Bean
+    RewardCodeService rewardCodeService(RestClient.Builder builder, LurkerProperties props, TwitchAuthService auth) {
+        return new RewardCodeService(builder.clone(), props.twitchGqlUrl(), auth::token);
     }
 
     @Bean

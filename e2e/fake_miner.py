@@ -72,9 +72,18 @@ out({"t": "event", "event": "RAID", "login": "trymacs", "target": "gronkh"})
 out({"t": "event", "event": "DROP", "name": "Door", "benefit": "Garage Door Skin"})
 out({"t": "drops", "campaigns": [{"id": "c1", "name": "Rust Twitch Drops #40", "game": "Rust", "image": None, "endsAt": "2026-10-02T18:00:00Z", "linked": True,
       "drops": [{"id": "d1", "name": "Hazmat Suit", "image": None, "required": 120, "watched": 75, "claimed": False},
-                {"id": "d2", "name": "Garage Door Skin", "image": None, "required": 60, "watched": 60, "claimed": True}]}],
-     "claimed": [{"id": "r-aurora", "name": "Aurora Cape", "image": None, "at": None, "game": "Minecraft"},
-                 {"id": "b2", "name": "Garage Door Skin", "image": None, "at": "2026-09-27T14:02:00Z", "game": "Rust"}]})
+                {"id": "d2", "name": "Garage Door Skin", "image": None, "required": 60, "watched": 60, "claimed": True}]},
+                   {"id": "aurora", "name": "Aurora Cape", "game": "Minecraft", "image": None, "endsAt": "2026-10-15T06:58:59Z", "linked": True,
+                    "quest": True, "drops": [{"id": "r-aurora", "name": "Aurora Cape", "image": None, "required": 15, "watched": 15, "claimed": True,
+                                              "claimable": False, "rewardId": "r-aurora", "redeemUrl": "https://www.minecraft.net/redeem"}]},
+                   {"id": "s0ph", "name": "s0phtember Gifter", "game": None, "image": None, "endsAt": "2026-10-11T05:30:00Z", "linked": True,
+                    "quest": True, "drops": [{"id": "g-watch", "name": "s0phtember Watcher", "image": None, "required": 1440, "watched": 137,
+                                              "claimed": False, "claimable": False, "rewardId": "r-watcher", "redeemUrl": None}]}],
+     "claimed": [{"id": "r-aurora", "name": "Aurora Cape", "image": None, "at": None, "game": "Minecraft",
+                  "campaignId": "aurora", "redeemUrl": "https://www.minecraft.net/redeem"},
+                 {"id": "pichu", "name": "Pichu", "image": None, "at": None, "game": None, "campaignId": "poke", "redeemUrl": None},
+                 {"id": "b2", "name": "Garage Door Skin", "image": None, "at": "2026-09-27T14:02:00Z", "game": "Rust",
+                  "campaignId": None, "redeemUrl": None}]})
 out({"t": "campaigns", "campaigns": catalogue()})
 threading.Thread(target=state_loop, daemon=True).start()
 for line in sys.stdin:

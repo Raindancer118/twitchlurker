@@ -48,12 +48,21 @@ class LurkAnnouncerTest {
     }
 
     private void watching(double onlineSince, String... logins) {
+        watchingStream(onlineSince, null, null, logins);
+    }
+
+    private void watchingStream(double onlineSince, String streamId, String startedAt, String... logins) {
         var list = new ArrayList<MinerState.Streamer>();
         for (String l : logins) {
             list.add(new MinerState.Streamer(l, "1", true, true, 0, "g", "t", 1, onlineSince, 1, false, false, false,
-                    l.startsWith("drops") ? "drops" : "follow"));
+                    l.startsWith("drops") ? "drops" : "follow", streamId, startedAt));
         }
         state.update(new MinerState.Snapshot("tomlurkt", "s", null, list, clock.instant()));
+    }
+
+    private LurkAnnouncer restarted() {
+        return new LurkAnnouncer(settings, state, chat, new EventService(events, new LiveBus(), clock), events,
+                (task, delay) -> scheduled.add(task), clock, new Random(3));
     }
 
     private void runScheduled() {
@@ -117,5 +126,56 @@ class LurkAnnouncerTest {
         lurk.tick();
         runScheduled();
         assertThat(chat.sent).containsExactly("#papaplatte !lurk");
+    }
+
+    @Test
+    void redeployDuringTheSameBroadcastDoesNotGreetAgain() {
+        watchingStream(1000.0, "318232697560", "2026-09-28T15:33:50Z", "papaplatte");
+        lurk.tick();
+        runScheduled();
+        // The miner restarts: it sees the stream "come online" again, so its own online time changes.
+        clock.advance(Duration.ofMinutes(20));
+        watchingStream(5000.0, "318232697560", "2026-09-28T15:33:50Z", "papaplatte");
+        var fresh = restarted();
+        fresh.tick();
+        runScheduled();
+        assertThat(chat.sent).containsExactly("#papaplatte !lurk");
+    }
+
+    @Test
+    void greetingsStoredBeforeBroadcastIdsCountForTheRunningStream() {
+        // Sent by the old version, keyed by the miner's online time only.
+        watching(1000.0, "zarbex");
+        lurk.tick();
+        runScheduled();
+        clock.advance(Duration.ofMinutes(5));
+        watchingStream(7000.0, "42", "2026-09-28T17:30:00Z", "zarbex");
+        var fresh = restarted();
+        fresh.tick();
+        runScheduled();
+        assertThat(chat.sent).hasSize(1);
+
+        // A broadcast that started after the last greeting is a new stream.
+        clock.advance(Duration.ofHours(4));
+        watchingStream(9000.0, "43", "2026-09-28T21:00:00Z", "zarbex");
+        fresh.tick();
+        runScheduled();
+        assertThat(chat.sent).containsExactly("#zarbex !lurk", "#zarbex !lurk");
+    }
+
+    @Test
+    void waitsForTheStreamStartBeforeDecidingAfterARestart() {
+        watching(1000.0, "papaplatte");
+        lurk.tick();
+        runScheduled();
+        watchingStream(5000.0, "77", null, "papaplatte");
+        var fresh = restarted();
+        fresh.tick();
+        runScheduled();
+        assertThat(chat.sent).hasSize(1);
+        watchingStream(5000.0, "77", "2026-09-28T17:00:00Z", "papaplatte");
+        fresh.tick();
+        runScheduled();
+        assertThat(chat.sent).hasSize(1);
     }
 }

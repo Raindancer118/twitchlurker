@@ -194,4 +194,16 @@ class TwitchlurkerApplicationTests {
             mvc.perform(get(path).with(oidcLogin())).andExpect(status().isOk());
         }
     }
+
+    @Test
+    void rewardCodeNeedsLoginValidIdsAndATwitchToken() throws Exception {
+        mvc.perform(get("/api/drops/code").param("campaign", "c1").param("reward", "r1")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/drops/code").param("campaign", "c1\"}").param("reward", "r1").with(oidcLogin()))
+                .andExpect(status().isBadRequest());
+        // No Twitch login in this test context: nothing to ask Twitch with.
+        mvc.perform(get("/api/drops/code").param("campaign", "ef0b8279-7af5-4519-81a1-0233b2226ec5")
+                        .param("reward", "28d62d53-b910-11f1-8bbe-0a58a9feac02").with(oidcLogin()))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.detail").value(org.hamcrest.Matchers.startsWith("Twitch has no code")));
+    }
 }

@@ -56,7 +56,7 @@ class RaffleServiceTest {
 
     private void online(String login, String source) {
         var streamers = new ArrayList<MinerState.Streamer>(state.snapshot().map(MinerState.Snapshot::streamers).orElse(List.of()));
-        streamers.add(new MinerState.Streamer(login, "1", true, false, 0, "x", "t", 1, null, 0, false, false, false, source));
+        streamers.add(new MinerState.Streamer(login, "1", true, false, 0, "x", "t", 1, null, 0, false, false, false, source, null, null));
         state.update(new MinerState.Snapshot("tomlurkt", "s", null, streamers, clock.instant()));
     }
 

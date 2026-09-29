@@ -7,6 +7,7 @@ import de.raindancer118.twitchlurker.raffle.RaffleService;
 import de.raindancer118.twitchlurker.settings.InvalidSettingsException;
 import de.raindancer118.twitchlurker.settings.LurkerSettings;
 import de.raindancer118.twitchlurker.settings.SettingsStore;
+import de.raindancer118.twitchlurker.twitch.RewardCodeService;
 import de.raindancer118.twitchlurker.twitch.TwitchAuthService;
 import de.raindancer118.twitchlurker.twitch.TwitchAuthStatus;
 import java.security.Principal;
@@ -14,6 +15,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import org.springframework.http.CacheControl;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -35,6 +37,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 public class ApiController {
 
     private static final Pattern LOGIN = Pattern.compile("[a-z0-9_]{3,25}");
+    private static final Pattern TWITCH_ID = Pattern.compile("[A-Za-z0-9_-]{1,100}");
 
     public record Me(String name, String email) {}
 
@@ -51,9 +54,10 @@ public class ApiController {
     private final RaffleService raffles;
     private final SettingsStore settings;
     private final LiveBus bus;
+    private final RewardCodeService codes;
 
     public ApiController(DashboardService dashboard, MinerSupervisor supervisor, MinerState state, TwitchAuthService auth,
-                         RaffleService raffles, SettingsStore settings, LiveBus bus) {
+                         RaffleService raffles, SettingsStore settings, LiveBus bus, RewardCodeService codes) {
         this.dashboard = dashboard;
         this.supervisor = supervisor;
         this.state = state;
@@ -61,6 +65,7 @@ public class ApiController {
         this.raffles = raffles;
         this.settings = settings;
         this.bus = bus;
+        this.codes = codes;
     }
 
     @GetMapping("/me")
@@ -132,6 +137,18 @@ public class ApiController {
     @GetMapping("/drops")
     DashboardService.Drops drops() {
         return dashboard.drops();
+    }
+
+    /** Fetched live from Twitch on every click, never cached, so the code only ever lives in the user's browser. */
+    @GetMapping("/drops/code")
+    ResponseEntity<?> rewardCode(@RequestParam String campaign, @RequestParam String reward) {
+        if (!TWITCH_ID.matcher(campaign).matches() || !TWITCH_ID.matcher(reward).matches()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid reward");
+        }
+        return codes.code(campaign, reward)
+                .<ResponseEntity<?>>map(code -> ResponseEntity.ok().cacheControl(CacheControl.noStore()).body(code))
+                .orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("detail", "Twitch has no code for this reward (badges and unclaimed rewards have none).")));
     }
 
     @GetMapping("/raffles")

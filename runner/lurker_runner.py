@@ -186,13 +186,30 @@ def drop_scout(miner, login):
     emit({"t": "log", "level": "INFO", "logger": "runner", "msg": f"Drop hunt: {login} no longer earns drops, stopped lurking"})
 
 
+stream_start_cache = {}
+STREAM_START_QUERY = "query StreamStart($logins: [String!]) { users(logins: $logins) { login stream { id createdAt } } }"
+
+
+def refresh_stream_starts(miner):
+    """Twitch's start time per broadcast, looked up once per broadcast (the !lurk announcer keys on it)."""
+    missing = core.logins_missing_start(list(miner.streamers), stream_start_cache)
+    for i in range(0, len(missing), 50):
+        try:
+            response = miner.twitch.post_gql_request({"operationName": "StreamStart", "query": STREAM_START_QUERY,
+                                                      "variables": {"logins": missing[i:i + 50]}})
+            stream_start_cache.update(core.stream_starts(response))
+        except Exception as e:
+            emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read stream start times: {e}"})
+
+
 def state_loop(miner, config):
     wait_until_running(miner)
     while miner.running:
+        refresh_stream_starts(miner)
         now = time.time()
         streamers = []
         for s in list(miner.streamers):
-            snap = core.streamer_snapshot(s, last_watched, now, extra_logins)
+            snap = core.streamer_snapshot(s, last_watched, now, extra_logins, stream_start_cache)
             if s.username in scouted:
                 snap["source"] = "drops"
             streamers.append(snap)
@@ -202,19 +219,68 @@ def state_loop(miner, config):
         time.sleep(15)
 
 
+QUEST_IN_PROGRESS = ("query QuestProgress { currentUser { id inventory { viewerRewardDropCampaignsInProgress "
+                     "{ id rewardGroups { id self { status currentMinutesWatched grantCount } } } } } }")
+QUEST_GROUP_FIELDS = ("id name startAt endAt imageURL game { id displayName boxArtURL } rewardGroups { id name "
+                      "progressCriteria { requirementType requirements { minutesWatched subs } repeatableConfig { repeatableTimes } } "
+                      "rewards { id name thumbnailURL } }")
+
+
+def fetch_quest_progress(twitch):
+    """(user id, in-progress list, details by campaign id) for Twitch's reward-drop campaigns (quests, channel badges).
+    Neither shows up in the classic inventory; plain GQL queries still work for the TV client."""
+    data = (twitch.post_gql_request({"operationName": "QuestProgress", "query": QUEST_IN_PROGRESS}) or {}).get("data") or {}
+    user = data.get("currentUser") or {}
+    in_progress = ((user.get("inventory") or {}).get("viewerRewardDropCampaignsInProgress")) or []
+    ids = [c["id"] for c in in_progress if c.get("id")]
+    details = {}
+    if ids:
+        params = ", ".join(f"$id{i}: ID!" for i in range(len(ids)))
+        fields = " ".join(f"c{i}: dropsCampaign(id: $id{i}) {{ {QUEST_GROUP_FIELDS} }}" for i in range(len(ids)))
+        response = twitch.post_gql_request({"operationName": "QuestDetails", "query": f"query QuestDetails({params}) {{ {fields} }}",
+                                            "variables": {f"id{i}": cid for i, cid in enumerate(ids)}})
+        found = (response or {}).get("data") or {}
+        details = {cid: found.get(f"c{i}") for i, cid in enumerate(ids) if found.get(f"c{i}")}
+    return user.get("id"), in_progress, details
+
+
+def claim_reward_drop(twitch, instance_id):
+    query = copy.deepcopy(GQLOperations.DropsPage_ClaimDropRewards)
+    query["variables"] = {"input": {"dropInstanceID": instance_id}}
+    response = twitch.post_gql_request(query) or {}
+    return not response.get("errors") and ((response.get("data") or {}).get("claimDropRewards") is not None)
+
+
 def inventory_loop(miner):
     wait_until_running(miner)
     quests = None
     while miner.running:
         try:
-            inventory = miner.twitch._Twitch__get_inventory()
+            twitch = miner.twitch
+            inventory = twitch._Twitch__get_inventory()
             snap = core.inventory_snapshot(inventory)
+            claimed_now = set()
+            try:
+                user_id, in_progress, details = fetch_quest_progress(twitch)
+                # TCPM only claims classic drops; earned quest tiers would otherwise expire unclaimed.
+                for instance_id, name in core.claimable_instances(in_progress, details, user_id):
+                    if claim_reward_drop(twitch, instance_id):
+                        claimed_now.add(instance_id.split("#")[1])
+                        emit({"t": "event", "event": "DROP", "name": name})
+                    else:
+                        emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not claim {name}"})
+                if claimed_now:
+                    user_id, in_progress, details = fetch_quest_progress(twitch)
+                completed = (inventory or {}).get("completedRewardCampaigns") or []
+                snap["campaigns"] += core.quest_progress(in_progress, details, completed, time.time())
+            except Exception as e:
+                emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read quest progress: {e}"})
             emit({"t": "drops", **snap})
             # Quest rewards are granted by Twitch itself, so no claim_drop hook ever sees them.
             if inventory:
-                for name in core.new_quest_rewards(quests, inventory):
+                for name in core.new_quest_rewards(None if quests is None else quests | claimed_now, inventory):
                     emit({"t": "event", "event": "DROP", "name": name})
-                quests = core.completed_quest_ids(inventory)
+                quests = core.completed_quest_ids(inventory) | claimed_now | (quests or set())
         except Exception as e:
             emit({"t": "log", "level": "WARNING", "logger": "runner", "msg": f"Could not read inventory: {e}"})
         time.sleep(300)

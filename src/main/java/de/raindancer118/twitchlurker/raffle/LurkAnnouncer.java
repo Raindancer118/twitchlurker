@@ -7,6 +7,7 @@ import de.raindancer118.twitchlurker.settings.SettingsStore;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
+import java.time.format.DateTimeParseException;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
@@ -40,8 +41,20 @@ public class LurkAnnouncer {
         this.random = random;
     }
 
+    /** Twitch's broadcast id when known. The miner's online time is only a fallback: it resets on every restart. */
     private static String session(MinerState.Streamer s) {
+        if (s.streamId() != null) {
+            return s.login() + "@b" + s.streamId();
+        }
         return s.login() + "@" + (s.onlineSince() == null ? "?" : String.valueOf(s.onlineSince().longValue()));
+    }
+
+    private static Instant startedAt(MinerState.Streamer s) {
+        try {
+            return s.streamStartedAt() == null ? null : Instant.parse(s.streamStartedAt());
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     public synchronized void tick() {
@@ -68,7 +81,14 @@ public class LurkAnnouncer {
             }
             String session = session(s);
             Instant last = lastSent.get(login);
-            boolean newStream = !session.equals(sessionGreeted.get(login));
+            Instant started = startedAt(s);
+            if (s.streamId() != null && started == null && last != null && !session.equals(sessionGreeted.get(login))) {
+                // Can't tell a restart from a new broadcast yet; the runner reports the start time shortly.
+                continue;
+            }
+            // Greeted if this exact broadcast was greeted, or anything was said after it started (covers restarts
+            // and greetings stored before broadcast ids were known).
+            boolean newStream = !session.equals(sessionGreeted.get(login)) && (started == null || last == null || last.isBefore(started));
             boolean repeatDue = cfg.repeatMinutes() > 0 && last != null
                     && !now.isBefore(last.plus(Duration.ofMinutes(cfg.repeatMinutes())));
             if (newStream || repeatDue) {

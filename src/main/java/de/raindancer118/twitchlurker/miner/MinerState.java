@@ -11,15 +11,18 @@ public class MinerState {
 
     public record Streamer(String login, String channelId, boolean online, boolean watching, long points, String game,
                            String title, long viewers, Double onlineSince, double minutesWatched, boolean streakPending,
-                           boolean dropsEligible, boolean multiplier, String source) {}
+                           boolean dropsEligible, boolean multiplier, String source, String streamId, String streamStartedAt) {}
 
     public record Snapshot(String user, String session, String startedAt, List<Streamer> streamers, Instant receivedAt) {}
 
-    public record Drop(String id, String name, String image, int required, int watched, boolean claimed) {}
+    /** rewardId/redeemUrl are set for quest rewards: the pair looks up a redeem code, the URL is where it goes. */
+    public record Drop(String id, String name, String image, int required, int watched, boolean claimed, Boolean claimable,
+                       String rewardId, String redeemUrl) {}
 
-    public record Campaign(String id, String name, String game, String image, String endsAt, boolean linked, List<Drop> drops) {}
+    public record Campaign(String id, String name, String game, String image, String endsAt, boolean linked, Boolean quest,
+                           List<Drop> drops) {}
 
-    public record Claimed(String id, String name, String image, String at, String game) {}
+    public record Claimed(String id, String name, String image, String at, String game, String campaignId, String redeemUrl) {}
 
     public record Drops(List<Campaign> campaigns, List<Claimed> claimed, Instant receivedAt) {}
 

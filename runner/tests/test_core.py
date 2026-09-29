@@ -38,7 +38,7 @@ def _streamer(name, online=True, points=1200, game="Rust"):
     stream = SimpleNamespace(
         title="chill", game={"id": "1", "displayName": game} if game else {},
         viewers_count=321, watch_streak_missing=False, minute_watched=12.0,
-        campaigns_ids=["c1"], campaigns=[],
+        campaigns_ids=["c1"], campaigns=[], broadcast_id="318232697560",
     )
     return SimpleNamespace(
         username=name, channel_id="99", is_online=online, channel_points=points,
@@ -371,7 +371,8 @@ def test_inventory_snapshot_lists_completed_quests_as_claimed_newest_first():
     claimed = core.inventory_snapshot(inv)["claimed"]
     assert [c["name"] for c in claimed] == ["Aurora Cape", "Door Skin", "Builder Cape"]
     # Twitch doesn't say when a quest was completed.
-    assert claimed[0] == {"id": "r-aurora", "name": "Aurora Cape", "image": "https://x/aurora.png", "at": None, "game": "Minecraft"}
+    assert claimed[0] == {"id": "r-aurora", "name": "Aurora Cape", "image": "https://x/aurora.png", "at": None, "game": "Minecraft",
+                          "campaignId": "aurora", "redeemUrl": "https://www.minecraft.net/redeem"}
 
 
 def test_completed_quest_ids():
@@ -421,3 +422,110 @@ def test_drop_channel_plan_counts_open_quests_and_ignores_earned_ones():
     earned = core.quest_catalogue([AURORA], {"aurora"}, [], NOW)
     assert core.drop_channel_plan(earned, "Minecraft")["skip"] == "everything already earned"
     assert core.drop_channel_plan(cat + earned, "Minecraft")["allowed"] == {"papaplatte"}
+
+
+# viewerRewardDropCampaignsInProgress + dropsCampaign(id) as Twitch answers the TV client.
+CREEPER_DETAIL = {"id": "creeper", "name": "Corrupted Creeper Cape", "status": "EXPIRED", "startAt": "2026-09-21T18:30:00Z",
+                  "endAt": "2026-09-27T06:58:59.999Z", "imageURL": "https://x/creeper-campaign.png",
+                  "game": {"id": "27471", "displayName": "Minecraft", "boxArtURL": "https://x/mc-{width}x{height}.jpg"},
+                  "rewardGroups": [{"id": "g-creeper", "name": "Corrupted Creeper Cape",
+                                    "progressCriteria": {"requirementType": "WATCH", "requirements": {"minutesWatched": 15, "subs": None},
+                                                         "repeatableConfig": None},
+                                    "rewards": [{"id": "r-creeper", "name": "Corrupted Creeper Cape", "thumbnailURL": "https://x/creeper.png"}]}]}
+BADGE_DETAIL = {"id": "s0ph", "name": "s0phtember Gifter", "status": "ACTIVE", "startAt": "2026-09-13T15:00:00Z",
+                "endAt": "2026-10-11T05:30:00Z", "imageURL": "https://x/badge.png", "game": None,
+                "rewardGroups": [
+                    {"id": "g-subs", "name": "", "progressCriteria": {"requirementType": "SUB", "requirements": {"minutesWatched": None, "subs": 20}},
+                     "rewards": [{"id": "r-gifter", "name": "s0phtember Gifter", "thumbnailURL": "https://x/gifter.png"}]},
+                    {"id": "g-watch", "name": "", "progressCriteria": {"requirementType": "WATCH", "requirements": {"minutesWatched": 1440, "subs": None}},
+                     "rewards": [{"id": "r-watcher", "name": "s0phtember Watcher", "thumbnailURL": "https://x/watcher.png"}]}]}
+POKE_DETAIL = {"id": "poke", "name": "First Partners Collection", "status": "ACTIVE", "startAt": "2026-08-24T17:00:00Z",
+               "endAt": "2026-11-01T07:00:00Z", "imageURL": "https://x/poke.png", "game": None,
+               "rewardGroups": [{"id": "g-ball", "name": "Great Ball",
+                                 "progressCriteria": {"requirementType": "WATCH", "requirements": {"minutesWatched": 20},
+                                                      "repeatableConfig": {"repeatableTimes": 3}},
+                                 "rewards": [{"id": "r-ball", "name": "Great Ball", "thumbnailURL": "https://x/ball.png"}]}]}
+IN_PROGRESS = [
+    {"id": "creeper", "rewardGroups": [{"id": "g-creeper", "self": {"status": "CLAIMABLE", "currentMinutesWatched": 15, "grantCount": 0}}]},
+    {"id": "s0ph", "rewardGroups": [{"id": "g-watch", "self": {"status": "IN_PROGRESS", "currentMinutesWatched": 137, "grantCount": 0}}]},
+    {"id": "poke", "rewardGroups": [{"id": "g-ball", "self": {"status": "IN_PROGRESS", "currentMinutesWatched": 5, "grantCount": 1}}]},
+]
+DETAILS = {"creeper": CREEPER_DETAIL, "s0ph": BADGE_DETAIL, "poke": POKE_DETAIL}
+
+
+def test_quest_progress_from_reward_drop_campaigns():
+    camps = {c["id"]: c for c in core.quest_progress(IN_PROGRESS, DETAILS, [], NOW)}
+    creeper = camps["creeper"]
+    assert creeper["name"] == "Corrupted Creeper Cape" and creeper["game"] == "Minecraft" and creeper["quest"] is True
+    assert creeper["image"] == "https://x/mc-285x380.jpg" and creeper["endsAt"] == "2026-09-27T06:58:59.999Z" and creeper["linked"] is True
+    assert creeper["drops"] == [{"id": "g-creeper", "name": "Corrupted Creeper Cape", "image": "https://x/creeper.png",
+                                 "required": 15, "watched": 15, "claimed": False, "claimable": True,
+                                 "rewardId": "r-creeper", "redeemUrl": None}]
+    # Channel badge campaigns: no game, sub tiers can't be lurked and stay out.
+    s0ph = camps["s0ph"]
+    assert s0ph["game"] is None and s0ph["image"] == "https://x/badge.png"
+    assert [(d["name"], d["watched"], d["required"]) for d in s0ph["drops"]] == [("s0phtember Watcher", 137, 1440)]
+    # Repeatable tiers (one grant per 24 h window) count their finished windows.
+    assert [(d["watched"], d["required"]) for d in camps["poke"]["drops"]] == [(25, 60)]
+
+
+def test_quest_progress_lists_completed_quests_while_they_run():
+    camps = core.quest_progress([], {}, [AURORA, BUILDER], NOW)
+    assert [c["id"] for c in camps] == ["aurora"]
+    assert camps[0]["drops"] == [{"id": "r-aurora", "name": "Aurora Cape", "image": "https://x/aurora.png", "required": 15,
+                                  "watched": 15, "claimed": True, "claimable": False, "rewardId": "r-aurora",
+                                  "redeemUrl": "https://www.minecraft.net/redeem"}]
+    # A completed quest that also appears in progress (claimable) is not listed twice.
+    assert len(core.quest_progress(IN_PROGRESS[:1], DETAILS, [quest("creeper", "Corrupted Creeper Cape", "Minecraft", ends="2026-09-30T00:00:00Z")], NOW)) == 1
+
+
+def test_claimable_instances():
+    assert core.claimable_instances(IN_PROGRESS, DETAILS, "926") == [("926#creeper#g-creeper", "Corrupted Creeper Cape")]
+    # Sub tiers turn CLAIMABLE once the subs are in, but Twitch grants those itself.
+    subs = [{"id": "s0ph", "rewardGroups": [{"id": "g-subs", "self": {"status": "CLAIMABLE"}}]}]
+    assert core.claimable_instances(subs, DETAILS, "926") == []
+    assert core.claimable_instances(IN_PROGRESS, DETAILS, None) == []
+
+
+def test_redeem_url_only_for_code_rewards():
+    assert core.redeem_url({"redemptionURL": "https://www.minecraft.net/redeem"}, {}) == "https://www.minecraft.net/redeem"
+    assert core.redeem_url({"redemptionURL": ""}, {"externalURL": "https://www.minecraft.net/redeem"}) == "https://www.minecraft.net/redeem"
+    # Badges point at a Twitch help article and have no code.
+    assert core.redeem_url({"redemptionURL": "https://help.twitch.tv/s/article/pokemon-chat-badges"}, {}) is None
+    assert core.redeem_url({"redemptionURL": "javascript:alert(1)"}, {}) is None
+
+
+def test_inventory_claimed_quests_carry_code_lookup_fields():
+    claimed = core.inventory_snapshot({"completedRewardCampaigns": [AURORA]})["claimed"]
+    assert claimed[0]["campaignId"] == "aurora" and claimed[0]["redeemUrl"] == "https://www.minecraft.net/redeem"
+    assert core.inventory_snapshot(INVENTORY)["claimed"][0]["campaignId"] is None
+
+
+def test_quest_catalogue_marks_quests_for_the_filter():
+    assert all(c["quest"] for c in core.quest_catalogue([AURORA], set(), [], NOW))
+
+
+def test_streamer_snapshot_carries_twitchs_broadcast_identity():
+    s = _streamer("s0ph")
+    snap = core.streamer_snapshot(s, {}, 1.0, set(), starts={"318232697560": "2026-09-28T15:33:50Z"})
+    assert snap["streamId"] == "318232697560" and snap["streamStartedAt"] == "2026-09-28T15:33:50Z"
+    unknown = core.streamer_snapshot(s, {}, 1.0, set())
+    assert unknown["streamId"] == "318232697560" and unknown["streamStartedAt"] is None
+    off = core.streamer_snapshot(_streamer("x", online=False), {}, 1.0, set(), starts={"318232697560": "2026-09-28T15:33:50Z"})
+    assert off["streamId"] is None and off["streamStartedAt"] is None
+
+
+def test_stream_starts_from_users_lookup():
+    response = {"data": {"users": [{"login": "s0ph", "stream": {"id": "318232697560", "createdAt": "2026-09-28T15:33:50Z"}},
+                                   {"login": "paterolive", "stream": None}, None]}}
+    assert core.stream_starts(response) == {"318232697560": "2026-09-28T15:33:50Z"}
+    assert core.stream_starts({"errors": [{}]}) == {}
+    assert core.stream_starts(None) == {}
+
+
+def test_logins_missing_stream_start():
+    a, b, c = _streamer("a"), _streamer("b"), _streamer("c", online=False)
+    b.stream.broadcast_id = "999"
+    assert core.logins_missing_start([a, b, c], {"318232697560": "x"}) == ["b"]
+    b.stream.broadcast_id = None
+    assert core.logins_missing_start([a, b, c], {"318232697560": "x"}) == []

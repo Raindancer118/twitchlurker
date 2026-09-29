@@ -4,6 +4,7 @@ import pickle
 import re
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlparse
 
 from TwitchChannelPointsMiner.classes.Settings import Priority
 
@@ -44,9 +45,10 @@ def parse_priority(names) -> list:
     return [Priority[n] for n in names]
 
 
-def streamer_snapshot(streamer, last_watched: dict, now: float, extra: set) -> dict:
+def streamer_snapshot(streamer, last_watched: dict, now: float, extra: set, starts=None) -> dict:
     stream = streamer.stream
     online = bool(streamer.is_online)
+    broadcast = (getattr(stream, "broadcast_id", None) or None) if online else None
     watched_at = last_watched.get(id(stream))
     game = (stream.game or {}) if online else {}
     return {
@@ -64,7 +66,22 @@ def streamer_snapshot(streamer, last_watched: dict, now: float, extra: set) -> d
         "dropsEligible": bool(online and stream.campaigns_ids),
         "multiplier": bool(streamer.activeMultipliers),
         "source": "extra" if streamer.username in extra else "follow",
+        # online_at resets whenever the miner restarts; the broadcast id and Twitch's start time don't.
+        "streamId": broadcast,
+        "streamStartedAt": (starts or {}).get(broadcast) if broadcast else None,
     }
+
+
+def stream_starts(response) -> dict:
+    """broadcast id -> createdAt from a users(logins:) { stream { id createdAt } } lookup."""
+    users = ((response or {}).get("data") or {}).get("users") or []
+    return {u["stream"]["id"]: u["stream"].get("createdAt") for u in users
+            if u and u.get("stream") and u["stream"].get("id") and u["stream"].get("createdAt")}
+
+
+def logins_missing_start(streamers, starts: dict) -> list:
+    return [s.username for s in streamers
+            if s.is_online and getattr(s.stream, "broadcast_id", None) and s.stream.broadcast_id not in starts]
 
 
 def _box_art(url):
@@ -99,7 +116,8 @@ def inventory_snapshot(inventory: dict) -> dict:
         })
     claimed = [
         ({"id": b.get("id"), "name": b.get("name"), "image": b.get("imageURL"),
-          "at": b.get("lastAwardedAt"), "game": (b.get("game") or {}).get("name")}, b.get("lastAwardedAt"))
+          "at": b.get("lastAwardedAt"), "game": (b.get("game") or {}).get("name"), "campaignId": None, "redeemUrl": None},
+         b.get("lastAwardedAt"))
         for b in inventory.get("gameEventDrops") or []
     ]
     # Quests ("reward campaigns", e.g. Minecraft capes) never show up as drops; Twitch only lists them once completed.
@@ -107,13 +125,100 @@ def inventory_snapshot(inventory: dict) -> dict:
         for r in q.get("rewards") or []:
             claimed.append(({"id": r.get("id"), "name": r.get("name") or q.get("name"),
                              "image": _image(r.get("thumbnailImage")) or _image(r.get("bannerImage")),
-                             "at": None, "game": (q.get("game") or {}).get("displayName")}, q.get("startsAt")))
+                             "at": None, "game": (q.get("game") or {}).get("displayName"),
+                             "campaignId": q.get("id"), "redeemUrl": redeem_url(r, q)}, q.get("startsAt")))
     claimed.sort(key=lambda item: item[1] or "", reverse=True)
     return {"campaigns": campaigns, "claimed": [item for item, _ in claimed]}
 
 
 def _image(image_set):
     return (image_set or {}).get("image1xURL")
+
+
+def redeem_url(reward, campaign):
+    """Where a reward code is redeemed. Rewards pointing back at Twitch (badges, help articles) have no code."""
+    url = (reward or {}).get("redemptionURL") or (campaign or {}).get("externalURL") or ""
+    parsed = urlparse(url)
+    host = parsed.hostname or ""
+    if parsed.scheme != "https" or host == "twitch.tv" or host.endswith(".twitch.tv"):
+        return None
+    return url
+
+
+def _watch_requirement(group):
+    """(minutes per window, windows) of a WATCH reward group, None for sub tiers."""
+    criteria = (group or {}).get("progressCriteria") or {}
+    if criteria.get("requirementType") != "WATCH":
+        return None
+    per = int((criteria.get("requirements") or {}).get("minutesWatched") or 0)
+    times = int((criteria.get("repeatableConfig") or {}).get("repeatableTimes") or 1)
+    return (per, max(times, 1)) if per > 0 else None
+
+
+def _quest_campaign(detail, drops, ends_at):
+    game = detail.get("game") or {}
+    return {"id": detail.get("id"), "name": detail.get("name"), "game": game.get("displayName"),
+            "image": _box_art(game.get("boxArtURL")) or detail.get("imageURL"), "endsAt": ends_at,
+            "linked": True, "quest": True, "drops": drops}
+
+
+def quest_progress(in_progress, details, completed, now: float) -> list:
+    """Quest/reward-drop campaigns for "My progress": Twitch's own minutes per reward tier, plus completed quests
+    while their campaign still runs (Twitch drops those from the in-progress list)."""
+    out, seen = [], set()
+    for c in in_progress or []:
+        detail = (details or {}).get(c.get("id"))
+        if not detail:
+            continue
+        mine = {g.get("id"): g.get("self") or {} for g in c.get("rewardGroups") or []}
+        drops = []
+        for g in detail.get("rewardGroups") or []:
+            need = _watch_requirement(g)
+            if need is None:
+                continue
+            per, times = need
+            me = mine.get(g.get("id")) or {}
+            status = me.get("status")
+            claimed, claimable = status in ("CLAIMED", "FULFILLED"), status == "CLAIMABLE"
+            grants, current = int(me.get("grantCount") or 0), int(me.get("currentMinutesWatched") or 0)
+            watched = per * times if claimed or claimable else min(per * times, grants * per + min(current, per))
+            reward = (g.get("rewards") or [{}])[0] or {}
+            drops.append({"id": g.get("id"), "name": reward.get("name") or g.get("name") or detail.get("name"),
+                          "image": reward.get("thumbnailURL"), "required": per * times, "watched": watched,
+                          "claimed": claimed, "claimable": claimable, "rewardId": reward.get("id"),
+                          "redeemUrl": redeem_url(reward, detail) if claimed else None})
+        if drops:
+            seen.add(detail.get("id"))
+            out.append(_quest_campaign(detail, drops, detail.get("endAt")))
+    for q in completed or []:
+        end = _epoch(q.get("endsAt"))
+        if q.get("id") in seen or (end is not None and end <= now):
+            continue
+        minutes = int((q.get("unlockRequirements") or {}).get("minuteWatchedGoal") or 0)
+        drops = [{"id": r.get("id"), "name": r.get("name") or q.get("name"),
+                  "image": _image(r.get("thumbnailImage")) or _image(r.get("bannerImage")), "required": minutes,
+                  "watched": minutes, "claimed": True, "claimable": False, "rewardId": r.get("id"),
+                  "redeemUrl": redeem_url(r, q)} for r in q.get("rewards") or []]
+        game = q.get("game") or {}
+        out.append(_quest_campaign({"id": q.get("id"), "name": q.get("name"), "imageURL": _image(q.get("image")),
+                                    "game": {"displayName": game.get("displayName")}}, drops, q.get("endsAt")))
+    return out
+
+
+def claimable_instances(in_progress, details, user_id) -> list:
+    """(dropInstanceID, reward name) for earned-but-unclaimed watch tiers. Twitch's own drops page claims
+    these with the instance id user#campaign#rewardGroup."""
+    if not user_id:
+        return []
+    out = []
+    for c in in_progress or []:
+        groups = {g.get("id"): g for g in ((details or {}).get(c.get("id")) or {}).get("rewardGroups") or []}
+        for g in c.get("rewardGroups") or []:
+            detail = groups.get(g.get("id"))
+            if (g.get("self") or {}).get("status") == "CLAIMABLE" and detail and _watch_requirement(detail):
+                reward = (detail.get("rewards") or [{}])[0] or {}
+                out.append((f"{user_id}#{c.get('id')}#{g.get('id')}", reward.get("name") or detail.get("name")))
+    return out
 
 
 def completed_quest_ids(inventory) -> set:

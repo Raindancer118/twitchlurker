@@ -593,6 +593,33 @@ async function loadDrops() {
   renderDrops();
 }
 
+function codeButton(campaign, reward, redeemUrl, name) {
+  if (!campaign || !reward || !/^https:\/\//.test(redeemUrl || '')) return '';
+  return `<button type="button" class="secondary code-button" data-code-campaign="${esc(campaign)}" data-code-reward="${esc(reward)}" data-code-redeem="${esc(redeemUrl)}" data-code-name="${esc(name || '')}">Show code</button>`;
+}
+
+async function openCode({ codeCampaign, codeReward, codeRedeem, codeName }) {
+  const dialog = $('#code-dialog');
+  $('#code-title').textContent = codeName || 'Reward';
+  $('#code-status').textContent = 'Asking Twitch for your code…';
+  $('#code-box').hidden = true;
+  $('#code-expires').textContent = '';
+  const redeem = $('#code-redeem');
+  redeem.hidden = !/^https:\/\//.test(codeRedeem || '');
+  redeem.href = redeem.hidden ? '#' : codeRedeem;
+  redeem.querySelector('span').textContent = redeem.hidden ? '' : `Redeem on ${new URL(codeRedeem).hostname.replace(/^www\./, '')}`;
+  if (!dialog.open) dialog.showModal();
+  try {
+    const res = await api(`/api/drops/code?campaign=${encodeURIComponent(codeCampaign)}&reward=${encodeURIComponent(codeReward)}`);
+    $('#code-value').textContent = res.code;
+    $('#code-box').hidden = false;
+    $('#code-status').textContent = 'Straight from your Twitch drops inventory. Keep it to yourself.';
+    $('#code-expires').textContent = res.expiresAt ? `Valid until ${dateTime(res.expiresAt)}` : '';
+  } catch (e) {
+    $('#code-status').textContent = e.message;
+  }
+}
+
 function renderDrops() {
   const d = state.drops;
   if (!d) return;
@@ -602,13 +629,17 @@ function renderDrops() {
     const ends = c.endsAt ? new Date(c.endsAt).toLocaleString(undefined, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '';
     const drops = c.drops.map(dr => {
       const pct = dr.required ? Math.min(100, Math.round(dr.watched / dr.required * 100)) : 0;
-      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${dr.claimed ? '<span class="claimed">Claimed</span>' : pct + '%'}</strong></div><progress value="${dr.claimed ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small></li>`;
+      const done = dr.claimed || dr.claimable;
+      const label = dr.claimed ? '<span class="claimed">Claimed</span>' : dr.claimable ? '<span class="claimed">Earned, claiming…</span>' : pct + '%';
+      return `<li><div class="progress-label"><span>${esc(dr.name)}</span><strong>${label}</strong></div><progress value="${done ? 100 : pct}" max="100" aria-label="${esc(dr.name)} progress"></progress><small>${fmt(dr.watched)} / ${fmt(dr.required)} minutes</small>${dr.claimed ? codeButton(c.id, dr.rewardId, dr.redeemUrl, dr.name) : ''}</li>`;
     }).join('');
     const art = c.image ? `<img class="box-art" src="${esc(c.image)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : '<span class="box-fallback"><svg><use href="#i-chest"/></svg></span>';
-    return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between"><span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account linked' : 'Account not linked'}</span><span class="meta">${ends ? 'until ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
+    const linkState = c.quest ? '<span class="positive">Twitch quest · no link needed</span>'
+      : `<span class="${c.linked ? 'positive' : 'warning-text'}">${c.linked ? '✓ Account linked' : 'Account not linked'}</span>`;
+    return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between">${linkState}<span class="meta">${ends ? 'until ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
   }).join('') : `<div class="panel"><h2>No campaign in progress.</h2><p class="meta">Campaigns show up as soon as you collect watch time on a drop channel.${d.updatedAt ? ' Last checked ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
 
-  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small></article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
+  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small>${codeButton(i.campaignId, i.id, i.redeemUrl, i.name)}</article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
 
   const scouted = d.scouted || [];
   $('#scouted').innerHTML = `<h2>Drop hunt</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'The bot added these channels for running campaigns.' : 'Active. No extra channels needed yet.') : 'Off. Only your own channels collect drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${esc(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;
@@ -656,6 +687,7 @@ function renderCatalogue() {
     if (filter === 'active' && c.status !== 'ACTIVE') return false;
     if (filter === 'upcoming' && c.status !== 'UPCOMING') return false;
     if (filter === 'linked' && c.linked !== true) return false;
+    if (filter === 'quests' && !c.quest) return false;
     if (!q) return true;
     return [c.game, c.name, ...c.rewards.map(r => r.name)].some(v => (v || '').toLowerCase().includes(q));
   });
@@ -1002,6 +1034,17 @@ function wire() {
     if (state.overview) renderSlots();
   });
   wireDrag();
+  $('#code-copy').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText($('#code-value').textContent);
+      toast('Code copied');
+    } catch {
+      getSelection().selectAllChildren($('#code-value'));
+      toast('Press Ctrl+C to copy', true);
+    }
+  });
+  // The code only stays in the page while the dialog is open.
+  $('#code-dialog').addEventListener('close', () => { $('#code-value').textContent = ''; });
   $('#drop-search').addEventListener('input', renderCatalogue);
   $('#drop-filter').addEventListener('change', renderCatalogue);
   $('#watch-form').addEventListener('submit', ev => {
@@ -1022,6 +1065,11 @@ function wire() {
     }
   });
   document.addEventListener('click', ev => {
+    const code = ev.target.closest('[data-code-campaign]');
+    if (code) {
+      openCode(code.dataset);
+      return;
+    }
     const watch = ev.target.closest('[data-watch-game]');
     if (watch && watch.dataset.watchGame) {
       toggleWatch(watch.dataset.watchGame);
