@@ -137,6 +137,8 @@ function showScreen() {
     $$('nav a[aria-current]').forEach(a => a.setAttribute('aria-current', 'page'));
     $('#breadcrumb').textContent = SCREENS[id];
     document.title = `${SCREENS[id]} · twitchlurker`;
+    // Hashes double as section ids, so the browser anchor-jumps past the header otherwise.
+    window.scrollTo({ top: 0, behavior: 'instant' });
     moveNavIndicator();
   };
   pendingEnter = id;

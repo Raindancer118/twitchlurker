@@ -251,3 +251,22 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await expect(page.locator('#lurk-repeat')).toHaveValue('120');
   expect(errors).toEqual([]);
 });
+
+test('sub pages open at the top', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await login(page);
+  await go(page, 'drops');
+  await expect(page.locator('#catalogue-grid .catalogue-item').first()).toBeVisible({ timeout: 20_000 });
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  expect(await page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+  for (const id of ['settings', 'channels', 'bot', 'raffles', 'overview']) {
+    await go(page, id);
+    await expect(page.locator(`#${id}`)).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  }
+  await page.goto('/#settings');
+  await expect(page.locator('#settings')).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+});
