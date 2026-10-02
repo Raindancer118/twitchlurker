@@ -19,6 +19,16 @@
   @keyframes vt-out{to{opacity:0;transform:translateY(-4px)}}
   @keyframes vt-in{from{opacity:0;transform:translateY(8px)}}
 
+  /* Theme switch: the new scheme opens as a circle from the toggle (centre and radius from app.js).
+     Named parts join the root snapshot so the whole page flips at once. */
+  html.theme-switch :is(main,.sidebar nav a){view-transition-name:none}
+  html.theme-switch::view-transition-old(root){animation:none}
+  html.theme-switch::view-transition-new(root){animation:theme-reveal 650ms var(--ease-out)}
+  @keyframes theme-reveal{
+    from{clip-path:circle(0 at var(--tx,100%) var(--ty,0))}
+    to{clip-path:circle(var(--tr,150vmax) at var(--tx,100%) var(--ty,0))}
+  }
+
   /* Mobile tab bar: the pill springs to the new tab, its icon pops once. */
   .tab-indicator{transition:transform 420ms var(--ease-spring),width 420ms var(--ease-spring)}
   .tabbar a[aria-current=page] svg{animation:pop 420ms var(--ease-spring)}

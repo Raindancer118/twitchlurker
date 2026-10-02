@@ -270,3 +270,31 @@ test('sub pages open at the top', async ({ page }) => {
   await expect(page.locator('#settings')).toBeVisible();
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+test('theme switch reveals from the toggle as a circle', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark', reducedMotion: 'no-preference' });
+  await login(page);
+  const toggle = page.locator('#theme-toggle');
+  const box = await toggle.boundingBox();
+  await page.evaluate(() => {
+    const seen = window.__switch = [];
+    new MutationObserver(() => {
+      const s = document.documentElement.style;
+      seen.push({ on: document.documentElement.classList.contains('theme-switch'), x: s.getPropertyValue('--tx'), y: s.getPropertyValue('--ty'), r: s.getPropertyValue('--tr') });
+    }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+  });
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await expect(page.locator('html')).not.toHaveClass(/theme-switch/);
+  const seen = await page.evaluate(() => window.__switch);
+  const on = seen.find(s => s.on);
+  expect(on).toBeTruthy();
+  expect(parseFloat(on.x)).toBeCloseTo(box.x + box.width / 2, 0);
+  expect(parseFloat(on.y)).toBeCloseTo(box.y + box.height / 2, 0);
+  expect(parseFloat(on.r)).toBeGreaterThan(0);
+
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await toggle.click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  expect((await page.evaluate(() => window.__switch)).filter(s => s.on)).toHaveLength(1);
+});

@@ -155,13 +155,20 @@ function loadScreen(id) {
 function initTheme() {
   const saved = localStorage.getItem('theme');
   if (saved) document.documentElement.dataset.theme = saved;
-  $('#theme-toggle').addEventListener('click', () => {
-    const dark = document.documentElement.dataset.theme
-      ? document.documentElement.dataset.theme === 'dark'
-      : matchMedia('(prefers-color-scheme: dark)').matches;
+  $('#theme-toggle').addEventListener('click', e => {
+    const root = document.documentElement;
+    const dark = root.dataset.theme ? root.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
     const next = dark ? 'light' : 'dark';
-    document.documentElement.dataset.theme = next;
     localStorage.setItem('theme', next);
+    const apply = () => { root.dataset.theme = next; };
+    if (!document.startViewTransition || reducedMotion.matches) return apply();
+    const r = e.currentTarget.getBoundingClientRect();
+    const x = r.left + r.width / 2, y = r.top + r.height / 2;
+    root.style.setProperty('--tx', `${x}px`);
+    root.style.setProperty('--ty', `${y}px`);
+    root.style.setProperty('--tr', `${Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y))}px`);
+    root.classList.add('theme-switch');
+    document.startViewTransition(apply).finished.finally(() => root.classList.remove('theme-switch'));
   });
 }
 
