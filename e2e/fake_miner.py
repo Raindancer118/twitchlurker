@@ -86,8 +86,11 @@ out({"t": "drops", "campaigns": [{"id": "c1", "name": "Rust Twitch Drops #40", "
                     "quest": True, "drops": [{"id": "g-watch", "name": "s0phtember Watcher", "image": None, "required": 1440, "watched": 137,
                                               "claimed": False, "claimable": False, "rewardId": "r-watcher", "redeemUrl": None}]}],
      "claimed": [{"id": "r-aurora", "name": "Aurora Cape", "image": None, "at": None, "game": "Minecraft",
-                  "campaignId": "aurora", "redeemUrl": "https://www.minecraft.net/redeem"},
-                 {"id": "pichu", "name": "Pichu", "image": None, "at": None, "game": None, "campaignId": "poke", "redeemUrl": None},
+                  "campaignId": "aurora", "redeemUrl": "https://www.minecraft.net/redeem", "hasCode": True},
+                 # Twitch points this one's redeem link at twitch.tv, the code exists anyway.
+                 {"id": "r-creeper-cape", "name": "Blue Creeper Cape", "image": None, "at": None, "game": "Minecraft",
+                  "campaignId": "creeper", "redeemUrl": None, "hasCode": True},
+                 {"id": "pichu", "name": "Pichu", "image": None, "at": None, "game": None, "campaignId": "poke", "redeemUrl": None, "hasCode": False},
                  {"id": "b2", "name": "Garage Door Skin", "image": None, "at": "2026-09-27T14:02:00Z", "game": "Rust",
                   "campaignId": None, "redeemUrl": None}]})
 for i in range(1, 9):

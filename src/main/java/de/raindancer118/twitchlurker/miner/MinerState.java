@@ -22,7 +22,8 @@ public class MinerState {
     public record Campaign(String id, String name, String game, String image, String endsAt, boolean linked, Boolean quest,
                            List<Drop> drops) {}
 
-    public record Claimed(String id, String name, String image, String at, String game, String campaignId, String redeemUrl) {}
+    public record Claimed(String id, String name, String image, String at, String game, String campaignId, String redeemUrl,
+                          Boolean hasCode) {}
 
     public record Drops(List<Campaign> campaigns, List<Claimed> claimed, Instant receivedAt) {}
 

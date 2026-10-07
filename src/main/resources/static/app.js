@@ -611,9 +611,9 @@ async function loadDrops() {
   renderDrops();
 }
 
-function codeButton(campaign, reward, redeemUrl, name) {
-  if (!campaign || !reward || !/^https:\/\//.test(redeemUrl || '')) return '';
-  return `<button type="button" class="secondary code-button" data-code-campaign="${esc(campaign)}" data-code-reward="${esc(reward)}" data-code-redeem="${esc(redeemUrl)}" data-code-name="${esc(name || '')}">Show code</button>`;
+function codeButton(campaign, reward, redeemUrl, name, hasCode) {
+  if (!campaign || !reward || !hasCode) return '';
+  return `<button type="button" class="secondary code-button" data-code-campaign="${esc(campaign)}" data-code-reward="${esc(reward)}" data-code-redeem="${esc(redeemUrl || '')}" data-code-name="${esc(name || '')}">Show code</button>`;
 }
 
 async function openCode({ codeCampaign, codeReward, codeRedeem, codeName }) {
@@ -660,7 +660,7 @@ function renderDrops() {
     return `<article class="campaign panel">${art}<div class="campaign-body"><div class="row-between">${linkState}<span class="meta">${ends ? 'until ' + esc(ends) : ''}</span></div><p class="eyebrow">${esc(c.game || '')}</p><h2>${esc(c.name)}</h2><ul class="drop-list">${drops}</ul></div></article>`;
   }).join('') : `<div class="panel"><h2>Nothing in progress.</h2><p class="meta">Campaigns show up as soon as you collect watch time on a drop channel. Claimed rewards are in your inventory.${d.updatedAt ? ' Last checked ' + esc(dateTime(d.updatedAt)) + '.' : ''}</p></div>`;
 
-  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small>${codeButton(i.campaignId, i.id, i.redeemUrl, i.name)}</article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
+  $('#inventory-grid').innerHTML = d.claimed.length ? d.claimed.map(i => `<article class="inventory-item">${i.image ? `<img src="${esc(i.image)}" alt="" loading="lazy" referrerpolicy="no-referrer" width="48" height="48">` : '<svg aria-hidden="true"><use href="#i-chest"/></svg>'}<h3>${esc(i.name)}</h3><p>${esc(i.game || '')}</p><small>${i.at ? esc(dateTime(i.at)) : ''}</small>${codeButton(i.campaignId, i.id, i.redeemUrl, i.name, i.hasCode)}</article>`).join('') : '<p class="meta">Nothing in your inventory yet.</p>';
 
   const scouted = d.scouted || [];
   $('#scouted').innerHTML = `<h2>Drop hunt</h2><p class="meta">${d.scoutEnabled ? (scouted.length ? 'The bot added these channels for running campaigns.' : 'Active. No extra channels needed yet.') : 'Off. Only your own channels collect drops.'}</p>${scouted.length ? `<ul>${scouted.map(s => `<li class="${s.online ? 'live' : ''}">${twitchLink(s.login)} · ${esc(s.game || 'offline')}</li>`).join('')}</ul>` : ''}`;

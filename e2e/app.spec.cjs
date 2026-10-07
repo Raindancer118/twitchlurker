@@ -217,6 +217,10 @@ test('drops catalogue, watchlist, follow refresh and lurk settings', async ({ pa
   await page.screenshot({ path: 'shots/drops-code.png' });
   await page.locator('#code-dialog .close-dialog').click();
   await expect(page.locator('#code-value')).toHaveText('');
+  await page.locator('#inventory-grid .inventory-item', { hasText: 'Blue Creeper Cape' }).getByRole('button', { name: 'Show code' }).click();
+  await expect(page.locator('#code-value')).toHaveText('CREE-PER1-CAPE');
+  await expect(page.locator('#code-redeem')).toBeHidden();
+  await page.locator('#code-dialog .close-dialog').click();
   await page.click('[data-drop-tab="catalogue"]');
   await page.fill('#drop-search', 'twitch cape');
   await expect(page.locator('#catalogue-grid .catalogue-item')).toHaveCount(1);

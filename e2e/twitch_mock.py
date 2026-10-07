@@ -11,11 +11,12 @@ class H(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_POST(self):
-        # RewardCodeModal: one code for the Aurora Cape, "server error" for anything else (like Twitch for badges).
+        # RewardCodeModal: codes for the capes, "server error" for anything else (like Twitch for badges).
         req = json.loads(self.body() or b"{}")
         v = req.get("variables") or {}
-        ok = self.path == "/gql" and req.get("operationName") == "RewardCodeModal" and v.get("rewardID") == "r-aurora"
-        value = {"value": "AURO-RA12-CAPE", "rewardID": "r-aurora", "rewardCampaignID": v.get("rewardCampaignID"),
+        codes = {"r-aurora": "AURO-RA12-CAPE", "r-creeper-cape": "CREE-PER1-CAPE"}
+        ok = self.path == "/gql" and req.get("operationName") == "RewardCodeModal" and v.get("rewardID") in codes
+        value = {"value": codes.get(v.get("rewardID")), "rewardID": v.get("rewardID"), "rewardCampaignID": v.get("rewardCampaignID"),
                  "expiresAt": "2026-10-22T06:58:59.999Z"} if ok else None
         body = {"data": {"currentUser": {"inventory": {"rewardValue": value}}}}
         if not ok:

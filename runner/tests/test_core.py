@@ -372,7 +372,7 @@ def test_inventory_snapshot_lists_completed_quests_as_claimed_newest_first():
     assert [c["name"] for c in claimed] == ["Aurora Cape", "Door Skin", "Builder Cape"]
     # Twitch doesn't say when a quest was completed.
     assert claimed[0] == {"id": "r-aurora", "name": "Aurora Cape", "image": "https://x/aurora.png", "at": None, "game": "Minecraft",
-                          "campaignId": "aurora", "redeemUrl": "https://www.minecraft.net/redeem"}
+                          "campaignId": "aurora", "redeemUrl": "https://www.minecraft.net/redeem", "hasCode": True}
 
 
 def test_completed_quest_ids():
@@ -494,6 +494,18 @@ def test_inventory_claimed_quests_carry_code_lookup_fields():
     claimed = core.inventory_snapshot({"completedRewardCampaigns": [AURORA]})["claimed"]
     assert claimed[0]["campaignId"] == "aurora" and claimed[0]["redeemUrl"] == "https://www.minecraft.net/redeem"
     assert core.inventory_snapshot(INVENTORY)["claimed"][0]["campaignId"] is None
+
+
+def test_game_rewards_have_codes_even_when_twitch_points_the_redeem_link_at_itself():
+    # Real case (Blue Creeper Cape, 10/2026): redemptionURL "https://www.twitch.tv/", code exists anyway.
+    creeper = quest("creeper", "Blue Creeper Cape", "Minecraft")
+    creeper["externalURL"] = creeper["rewards"][0]["redemptionURL"] = "https://www.twitch.tv/"
+    badge = quest("pokemon", "Pichu", None)
+    badge["externalURL"] = badge["rewards"][0]["redemptionURL"] = "https://help.twitch.tv/s/article/pokemon-chat-badges"
+    claimed = {c["campaignId"]: c for c in core.inventory_snapshot({"completedRewardCampaigns": [creeper, badge]})["claimed"]}
+    assert claimed["creeper"]["hasCode"] and claimed["creeper"]["redeemUrl"] is None
+    assert not claimed["pokemon"]["hasCode"]
+    assert not core.inventory_snapshot(INVENTORY)["claimed"][0]["hasCode"]
 
 
 def test_quest_catalogue_marks_quests_for_the_filter():

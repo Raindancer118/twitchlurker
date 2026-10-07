@@ -117,17 +117,22 @@ def inventory_snapshot(inventory: dict) -> dict:
         })
     claimed = [
         ({"id": b.get("id"), "name": b.get("name"), "image": b.get("imageURL"),
-          "at": b.get("lastAwardedAt"), "game": (b.get("game") or {}).get("name"), "campaignId": None, "redeemUrl": None},
+          "at": b.get("lastAwardedAt"), "game": (b.get("game") or {}).get("name"), "campaignId": None, "redeemUrl": None,
+          "hasCode": False},
          b.get("lastAwardedAt"))
         for b in inventory.get("gameEventDrops") or []
     ]
     # Quests ("reward campaigns", e.g. Minecraft capes) never show up as drops; Twitch only lists them once completed.
+    # Whether a code exists can't be read off the redeem link: Twitch sometimes points it at twitch.tv itself
+    # (Blue Creeper Cape). Game-bound rewards carry codes, game-less ones are Twitch badges/emotes.
     for q in inventory.get("completedRewardCampaigns") or []:
         for r in q.get("rewards") or []:
+            url = redeem_url(r, q)
             claimed.append(({"id": r.get("id"), "name": r.get("name") or q.get("name"),
                              "image": _image(r.get("thumbnailImage")) or _image(r.get("bannerImage")),
                              "at": None, "game": (q.get("game") or {}).get("displayName"),
-                             "campaignId": q.get("id"), "redeemUrl": redeem_url(r, q)}, q.get("startsAt")))
+                             "campaignId": q.get("id"), "redeemUrl": url,
+                             "hasCode": bool(url or q.get("game"))}, q.get("startsAt")))
     claimed.sort(key=lambda item: item[1] or "", reverse=True)
     return {"campaigns": campaigns, "claimed": [item for item, _ in claimed]}
 
