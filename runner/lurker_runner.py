@@ -326,7 +326,7 @@ drops_wake = threading.Event()
 watch_games = []
 
 
-COMMUNITY_DROPS_URL = "https://twitch-drops-api.sunkwi.com/drops"
+COMMUNITY_DROPS_URL = "https://drops.sunkwi.com/api/twitch/drops"
 
 
 def fetch_community_drops(url):
@@ -334,6 +334,8 @@ def fetch_community_drops(url):
     r = requests.get(url, timeout=30, headers={"User-Agent": "twitchlurker (+https://github.com/Raindancer118)"})
     r.raise_for_status()
     data = r.json()
+    if isinstance(data, dict):
+        data = data.get("games")
     return data if isinstance(data, list) else None
 
 
