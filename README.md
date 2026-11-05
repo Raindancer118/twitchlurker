@@ -204,7 +204,7 @@ flowchart LR
 
 - **Java/Spring Boot** runs the dashboard, API, login, history (SQLite) and the chat watcher. The **Python runner** is [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) with a few hooks, so pinned slots, order and drop scouting apply live.
 - A **single Twitch token** (device login, scopes incl. `chat:edit`) covers points, drops and chat.
-- Twitch only shows the full list of drop campaigns to integrity-protected clients. The catalogue therefore comes from the public community list [twitch-drops-api.sunkwi.com](https://twitch-drops-api.sunkwi.com/drops) (configurable via `LURKER_COMMUNITY_DROPS_URL`). Independently of that, the bot looks up watched games directly in the Twitch directory for streams with drops enabled.
+- Twitch only shows the full list of drop campaigns to integrity-protected clients. The catalogue therefore comes from the public community list [drops.sunkwi.com](https://drops.sunkwi.com/docs) (configurable via `LURKER_COMMUNITY_DROPS_URL`). Independently of that, the bot looks up watched games directly in the Twitch directory for streams with drops enabled.
 
 ## 🛠️ Development
 
@@ -229,6 +229,6 @@ Regenerate the screenshots in this README (made-up data, generated images):
 
 ## 💜 Credits & license
 
-Built on [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) (GPL-3.0), with GQL knowledge from [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) and the drop list from [twitch-drops-api.sunkwi.com](https://twitch-drops-api.sunkwi.com).
+Built on [Twitch-Channel-Points-Miner-v2](https://github.com/rdavydov/Twitch-Channel-Points-Miner-v2) (GPL-3.0), with GQL knowledge from [TwitchDropsMiner](https://github.com/DevilXD/TwitchDropsMiner) and the drop list from [drops.sunkwi.com](https://drops.sunkwi.com/docs).
 
 [**Rain's Do Whatever The Fuck You Want With It License**](LICENSE): do whatever you want with it. `runner/lurker_watch.py` contains code from TCPM and stays GPL-3.0-or-later.

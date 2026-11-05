@@ -715,7 +715,7 @@ function renderCatalogue() {
   const updated = state.drops?.catalogueUpdatedAt;
   const access = state.drops?.catalogueAccess;
   $('#catalogue-meta').textContent = all.length
-    ? `${list.length} of ${all.length} campaigns${updated ? ' · as of ' + time(updated) : ''} · sources: Twitch quests + community list twitch-drops-api.sunkwi.com`
+    ? `${list.length} of ${all.length} campaigns${updated ? ' · as of ' + time(updated) : ''} · sources: Twitch quests + community list drops.sunkwi.com`
     : access === 'unavailable'
       ? 'The drop list is unreachable right now. The bot still looks for watched games directly on Twitch.'
       : 'The bot is loading the campaigns (takes a minute or two after startup).';
